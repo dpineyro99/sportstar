@@ -57,13 +57,19 @@ Se parte en dos sub-fases para no mezclar "¿funciona el pipeline?" con
 - ✅ Agregación de odds: consenso, mejor precio ejecutable, apertura, cierre, movimiento.
 - ✅ Pipeline: consensus no-vig → candidates → filtros → confidence → stake.
 - ✅ Instrumentación de jobs (`JobReport`) con la regla `matched == 0` ⇒ FAILED.
-- ⏳ Providers HTTP: schedule/scores, stats, lineups/pitchers, odds.
+- 🟡 Providers HTTP (The Odds API v4, MLB Stats API) y sus normalizadores:
+  escritos y testeados contra fixtures, **pendientes de verificar contra
+  respuestas reales**.
+- ⏳ Persistencia del pipeline en las tablas.
 - ⏳ Job de captura de closing line, **slate completo**.
 - ⏳ API mínima + Data Health.
 
-Los providers quedan pendientes a propósito: escribir un normalizador contra un
-esquema recordado en vez de contra respuestas reales es trabajo especulativo que
-se rehace entero en cuanto se ve el primer payload. Requieren red y una API key.
+Los normalizadores están escritos contra la documentación pública, no contra
+respuestas verificadas: la política de red del entorno de desarrollo deniega la
+salida a `statsapi.mlb.com` y `api.the-odds-api.com`. Están construidos para
+fallar con diagnóstico preciso —qué clave faltaba, qué llegó en su lugar— en vez
+de devolver cero en silencio, y `python -m sportstar.cli capture` convierte la
+primera ejecución real en la verificación del esquema.
 
 Al final de 2a el sistema recomienda apuestas sin que exista todavía ningún
 modelo estadístico. Lo que mida aquí es edge estructural puro (`ARCHITECTURE.md`

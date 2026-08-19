@@ -1,0 +1,73 @@
+[
+  {
+    "id": "e912304de2b2ce35b473ce2ecd3d1502",
+    "sport_key": "baseball_mlb",
+    "sport_title": "MLB",
+    "commence_time": "2026-08-19T23:05:00Z",
+    "home_team": "New York Yankees",
+    "away_team": "Boston Red Sox",
+    "bookmakers": [
+      {
+        "key": "pinnacle",
+        "title": "Pinnacle",
+        "last_update": "2026-08-19T22:45:33Z",
+        "markets": [
+          {
+            "key": "h2h",
+            "last_update": "2026-08-19T22:45:33Z",
+            "outcomes": [
+              { "name": "New York Yankees", "price": -120 },
+              { "name": "Boston Red Sox", "price": 108 }
+            ]
+          },
+          {
+            "key": "totals",
+            "last_update": "2026-08-19T22:45:33Z",
+            "outcomes": [
+              { "name": "Over", "price": -105, "point": 8.5 },
+              { "name": "Under", "price": -115, "point": 8.5 }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "draftkings",
+        "title": "DraftKings",
+        "last_update": "2026-08-19T22:46:01Z",
+        "markets": [
+          {
+            "key": "h2h",
+            "last_update": "2026-08-19T22:46:01Z",
+            "outcomes": [
+              { "name": "New York Yankees", "price": -110 },
+              { "name": "Boston Red Sox", "price": 100 }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "unknown_book_xyz",
+        "title": "Casa Desconocida",
+        "last_update": "2026-08-19T22:44:00Z",
+        "markets": [
+          {
+            "key": "h2h",
+            "outcomes": [
+              { "name": "New York Yankees", "price": -130 },
+              { "name": "Boston Red Sox", "price": 115 }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "aa11bb22cc33dd44ee55ff6677889900",
+    "sport_key": "baseball_mlb",
+    "sport_title": "MLB",
+    "commence_time": "2026-08-20T01:40:00Z",
+    "home_team": "Los Angeles Dodgers",
+    "away_team": "San Francisco Giants",
+    "bookmakers": []
+  }
+]

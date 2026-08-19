@@ -1,0 +1,54 @@
+{
+  "totalGames": 3,
+  "dates": [
+    {
+      "date": "2026-08-19",
+      "games": [
+        {
+          "gamePk": 748534,
+          "gameDate": "2026-08-19T23:05:00Z",
+          "gameNumber": 1,
+          "doubleHeader": "N",
+          "status": { "abstractGameState": "Preview", "detailedState": "Scheduled" },
+          "teams": {
+            "away": {
+              "score": 0,
+              "team": { "id": 111, "name": "Boston Red Sox" },
+              "probablePitcher": { "id": 657277, "fullName": "Brayan Bello" }
+            },
+            "home": {
+              "score": 0,
+              "team": { "id": 147, "name": "New York Yankees" },
+              "probablePitcher": { "id": 543037, "fullName": "Gerrit Cole" }
+            }
+          },
+          "venue": { "id": 3313, "name": "Yankee Stadium" }
+        },
+        {
+          "gamePk": 748535,
+          "gameDate": "2026-08-20T02:40:00Z",
+          "gameNumber": 1,
+          "doubleHeader": "N",
+          "status": { "abstractGameState": "Final", "detailedState": "Final" },
+          "teams": {
+            "away": { "score": 3, "team": { "id": 137, "name": "San Francisco Giants" } },
+            "home": { "score": 5, "team": { "id": 119, "name": "Los Angeles Dodgers" } }
+          },
+          "venue": { "id": 22, "name": "Dodger Stadium" }
+        },
+        {
+          "gamePk": 748536,
+          "gameDate": "2026-08-19T20:10:00Z",
+          "gameNumber": 2,
+          "doubleHeader": "Y",
+          "status": { "abstractGameState": "Preview", "detailedState": "Scheduled" },
+          "teams": {
+            "away": { "score": 0, "team": { "id": 111, "name": "Boston Red Sox" } },
+            "home": { "score": 0, "team": { "id": 147, "name": "New York Yankees" } }
+          },
+          "venue": { "id": 3313, "name": "Yankee Stadium" }
+        }
+      ]
+    }
+  ]
+}

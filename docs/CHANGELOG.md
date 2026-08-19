@@ -183,3 +183,77 @@ esquema recordado se rehace entero al ver el primer payload.
 
 Providers HTTP, job de captura de cierres, API y Data Health panel. Todo lo que
 falta de 2a depende de tener datos reales entrando.
+
+---
+
+## Phase 2a — Capa de proveedores
+
+**Estado:** escrita y testeada contra fixtures. **Pendiente de una ejecución real
+que verifique los esquemas.** 401 tests, 95% de cobertura del paquete.
+
+### Restricción que condiciona esta entrega
+
+La política de red del entorno de desarrollo deniega la salida a
+`statsapi.mlb.com` y `api.the-odds-api.com` (403 en el CONNECT del proxy). Los
+normalizadores están escritos contra la documentación pública de cada API, no
+contra respuestas verificadas.
+
+Eso no es una excusa, es una restricción de diseño: **si no puedo verificar el
+esquema, invierto en que el fallo sea barato de diagnosticar.**
+
+### Diseño derivado: fallar con diagnóstico, no en silencio
+
+```
+payload[3]: falta la clave 'commence_time'. Llegó dict con claves
+['id', 'sport_key', 'home_team', 'away_team']. Suele significar que el
+proveedor cambió el formato.
+```
+
+Frente a la alternativa —`matched: 0` sin explicación— la diferencia es entre
+diez minutos y una tarde. Reglas concretas:
+
+- **Cambio de forma en el nivel superior ⇒ aborta.** Si la raíz no es lo que
+  esperamos, nada de lo que sigue es fiable.
+- **Elemento roto ⇒ se cuenta y se sigue.** Un evento con formato raro no puede
+  tirar el slate entero.
+- **Cada error lleva su ruta** (`payload[3].bookmakers[1].markets[0]`) y enumera
+  las claves que sí llegaron.
+
+### Decisiones que conviene recordar
+
+**Los providers solo traen bytes.** No interpretan, no emparejan, no tocan la
+base. Permite guardar el payload íntegro en `raw_payloads` y reprocesar todo el
+histórico cuando un normalizador tenga un bug, sin volver a pagar la API.
+
+**Los normalizadores no emparejan.** Devuelven `home_team_raw` con el texto tal
+cual vino; el emparejamiento lo hace `resolution/`, que sabe encolar lo que no
+resuelve en vez de descartarlo.
+
+**No se reintenta lo que no se arregla reintentando.** Un 401 o un 404 se
+propagan de inmediato; solo 429 y 5xx llevan backoff. En The Odds API la cuota es
+dinero: el plan gratuito son 500 peticiones al mes y cada sync de odds cuesta
+`1 x mercados x regiones`. Un sync cada 10 minutos la agota en días — la
+frecuencia hay que decidirla con la cuota delante.
+
+**`gameNumber` de los dobletes.** Los dos partidos de un doblete comparten fecha
+y equipos. Sin ese campo colapsan en un evento y se pierde un partido entero. Es
+la causa clásica de eventos duplicados y ya está cubierta por test.
+
+**Los books desconocidos se registran, no se descartan.** Un book nuevo en el
+feed puede ser un sharp que deberíamos estar usando como referencia; enterarse
+tres meses después es tarde.
+
+**La captura nunca guarda la URL.** La API key viaja en la query string de The
+Odds API y acabaría commiteada. Solo se persiste el cuerpo de la respuesta.
+
+### Cómo verificar los esquemas
+
+```bash
+export SPORTSTAR_ODDS_API_KEY=...
+python -m sportstar.cli capture
+pytest tests/data -q
+```
+
+`capture` sobrescribe los fixtures con respuestas reales y los tests pasan a
+validarse contra ellas. Requiere salida de red a `statsapi.mlb.com` y
+`api.the-odds-api.com`.

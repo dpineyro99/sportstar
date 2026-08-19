@@ -14,6 +14,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
+from .capture import run_capture
 from .db.catalog import League, Sport, Sportsbook, Team
 from .db.session import create_db_engine, create_session_factory, database_url, session_scope
 from .demo import run_demo
@@ -75,9 +76,16 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("seed", help="puebla el catálogo")
     sub.add_parser("status", help="resumen del contenido de la base")
     sub.add_parser("demo", help="ejecuta el pipeline con precios sintéticos")
+    sub.add_parser("capture", help="captura fixtures reales de los proveedores")
     args = parser.parse_args(argv)
 
-    commands = {"init": cmd_init, "seed": cmd_seed, "status": cmd_status, "demo": run_demo}
+    commands = {
+        "init": cmd_init,
+        "seed": cmd_seed,
+        "status": cmd_status,
+        "demo": run_demo,
+        "capture": run_capture,
+    }
     return commands[args.command]()
 
 

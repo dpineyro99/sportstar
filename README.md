@@ -6,8 +6,8 @@ El objetivo no es predecir partidos, es **encontrar dónde se equivoca el mercad
 estimar probabilidades calibradas, compararlas contra la probabilidad justa
 (sin vig) del mercado y detectar expected value real.
 
-**Estado:** Phase 1 completada — núcleo matemático y modelo de datos.
-Sin proveedores de datos ni modelos todavía.
+**Estado:** Phase 2a — pipeline completo funcionando con el mercado como modelo.
+Proveedores escritos, pendientes de verificar contra respuestas reales.
 
 ## Puesta en marcha
 
@@ -19,9 +19,24 @@ pip install -e ".[dev]"
 python -m sportstar.cli init     # aplica migraciones
 python -m sportstar.cli seed     # puebla el catálogo (idempotente)
 python -m sportstar.cli status
+python -m sportstar.cli demo     # pipeline completo con precios sintéticos
 
 pytest -q
 ```
+
+## Verificar los proveedores de datos
+
+Los normalizadores están escritos contra la documentación de cada API, no contra
+respuestas verificadas. Para cerrar ese hueco hace falta salida de red a
+`statsapi.mlb.com` y `api.the-odds-api.com`:
+
+```bash
+export SPORTSTAR_ODDS_API_KEY=...   # solo para el de odds
+python -m sportstar.cli capture     # sobrescribe los fixtures con datos reales
+pytest tests/data -q                # los valida contra el esquema esperado
+```
+
+Si algo falla, el mensaje dice qué clave faltaba y qué llegó en su lugar.
 
 ## Documentación
 

@@ -1,0 +1,113 @@
+"""Normalizador del calendario de MLB Stats API.
+
+Forma esperada (`/api/v1/schedule?sportId=1&date=...&hydrate=probablePitcher,...`):
+
+    {"dates": [{"date": "2026-08-19", "games": [
+        {"gamePk": 748534,
+         "gameDate": "2026-08-19T23:05:00Z",
+         "gameNumber": 1, "doubleHeader": "N",
+         "status": {"abstractGameState": "Preview"},
+         "teams": {"home": {"score": 0, "team": {"id": 147, "name": "New York Yankees"},
+                            "probablePitcher": {"fullName": "..."}},
+                   "away": {...}},
+         "venue": {"name": "Yankee Stadium"}}]}]}
+
+`gamePk` es un entero y es el identificador estable del partido. `gameNumber`
+distingue los partidos de un doblete, que comparten fecha y equipos y son la
+causa clásica de eventos duplicados.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from ..providers.mlb_stats_api import PROVIDER_KEY
+from .errors import ShapeError, require_dict, require_key, require_list, require_str
+from .models import NormalizationResult, NormalizedEvent
+from .odds_api import parse_iso8601
+
+# `abstractGameState` del proveedor -> `db.enums.EventStatus`.
+STATUS_MAP: dict[str, str] = {
+    "Preview": "scheduled",
+    "Live": "live",
+    "Final": "final",
+    "Other": "postponed",
+}
+
+
+def normalize_schedule(payload: object) -> NormalizationResult:
+    """Normaliza un calendario diario."""
+    result = NormalizationResult()
+    root = require_dict(payload, path="payload")
+    dates = require_list(require_key(root, "dates", path="payload"), path="payload.dates")
+
+    for d_index, raw_date in enumerate(dates):
+        d_path = f"payload.dates[{d_index}]"
+        date_entry = require_dict(raw_date, path=d_path)
+        games = require_list(date_entry.get("games", []), path=f"{d_path}.games")
+
+        for g_index, raw_game in enumerate(games):
+            g_path = f"{d_path}.games[{g_index}]"
+            try:
+                result.events.append(_normalize_game(require_dict(raw_game, path=g_path), g_path))
+            except ShapeError as exc:
+                result.errors.append(str(exc))
+
+    return result
+
+
+def _team_side(teams: dict[str, Any], side: str, *, path: str) -> dict[str, Any]:
+    return require_dict(require_key(teams, side, path=path), path=f"{path}.{side}")
+
+
+def _normalize_game(game: dict[str, Any], path: str) -> NormalizedEvent:
+    teams = require_dict(require_key(game, "teams", path=path), path=f"{path}.teams")
+    home = _team_side(teams, "home", path=f"{path}.teams")
+    away = _team_side(teams, "away", path=f"{path}.teams")
+
+    home_path = f"{path}.teams.home"
+    away_path = f"{path}.teams.away"
+    home_team = require_dict(require_key(home, "team", path=home_path), path=f"{home_path}.team")
+    away_team = require_dict(require_key(away, "team", path=away_path), path=f"{away_path}.team")
+
+    status = require_dict(game.get("status", {}), path=f"{path}.status")
+    abstract = status.get("abstractGameState")
+
+    venue = require_dict(game.get("venue", {}), path=f"{path}.venue")
+
+    return NormalizedEvent(
+        provider=PROVIDER_KEY,
+        provider_event_id=str(require_key(game, "gamePk", path=path)),
+        sport_key="mlb",
+        start_time=parse_iso8601(require_str(game, "gameDate", path=path), path=f"{path}.gameDate"),
+        home_team_raw=require_str(home_team, "name", path=f"{home_path}.team"),
+        away_team_raw=require_str(away_team, "name", path=f"{away_path}.team"),
+        status=STATUS_MAP.get(abstract) if isinstance(abstract, str) else None,
+        home_score=_optional_int(home.get("score")),
+        away_score=_optional_int(away.get("score")),
+        venue_raw=venue.get("name") if isinstance(venue.get("name"), str) else None,
+        home_probable_pitcher_raw=_pitcher_name(home),
+        away_probable_pitcher_raw=_pitcher_name(away),
+        provider_home_team_id=_optional_str(home_team.get("id")),
+        provider_away_team_id=_optional_str(away_team.get("id")),
+        # Los dobletes comparten fecha y equipos: sin `gameNumber` se colapsan en
+        # un solo evento y se pierde uno de los dos partidos.
+        game_number=_optional_int(game.get("gameNumber")) or 1,
+    )
+
+
+def _pitcher_name(side: dict[str, Any]) -> str | None:
+    pitcher = side.get("probablePitcher")
+    if isinstance(pitcher, dict):
+        name = pitcher.get("fullName")
+        if isinstance(name, str):
+            return name
+    return None
+
+
+def _optional_int(value: Any) -> int | None:
+    return int(value) if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _optional_str(value: Any) -> str | None:
+    return str(value) if value is not None else None
