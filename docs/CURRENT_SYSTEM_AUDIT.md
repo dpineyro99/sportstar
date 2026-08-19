@@ -86,9 +86,16 @@ uno mismo. → Reflejado en `ARCHITECTURE.md` §4.2.
 El método obvio (dividir cada implied prob por la suma) asume que el vig se
 reparte igual entre ambos lados. Empíricamente no es así: los underdogs cargan
 más vig (favorite-longshot bias). En un mercado -120/+105 el error es pequeño;
-en +450 es material y siempre te hace ver edge donde no lo hay. → Implementar
-proporcional (default), **Shin** y **power method**, elegir por evidencia contra
-closing lines reales, no por preferencia. → `ARCHITECTURE.md` §4.1.
+en longshots es material.
+
+**Precisión sobre la dirección (medida al implementarlo en Phase 1).** El sesgo
+no produce edge fantasma en los longshots, sino en los **favoritos**: el método
+proporcional sobreestima la fair probability del underdog y por tanto subestima
+la del favorito, y una fair más baja infla el edge de ese lado. Sobre un mercado
+0.70/0.35 son 0.8 puntos — mismo orden de magnitud que los edges que buscamos.
+→ Implementar proporcional (default), **Shin** y **power method**, elegir por
+evidencia contra closing lines reales, no por preferencia.
+→ `ARCHITECTURE.md` §4.1 y `tests/core/test_novig.py::TestShin`.
 
 **R3 — El Confidence Score puede volverse pseudociencia.** *(riesgo medio)*
 El brief pide 0-10 "no arbitrario", pero cualquier fórmula que escribamos hoy —

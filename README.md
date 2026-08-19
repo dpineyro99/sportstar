@@ -6,7 +6,22 @@ El objetivo no es predecir partidos, es **encontrar dónde se equivoca el mercad
 estimar probabilidades calibradas, compararlas contra la probabilidad justa
 (sin vig) del mercado y detectar expected value real.
 
-**Estado:** Phase 0 (diseño). Sin implementación todavía.
+**Estado:** Phase 1 completada — núcleo matemático y modelo de datos.
+Sin proveedores de datos ni modelos todavía.
+
+## Puesta en marcha
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+
+python -m sportstar.cli init     # aplica migraciones
+python -m sportstar.cli seed     # puebla el catálogo (idempotente)
+python -m sportstar.cli status
+
+pytest -q
+```
 
 ## Documentación
 
@@ -16,6 +31,7 @@ estimar probabilidades calibradas, compararlas contra la probabilidad justa
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Arquitectura objetivo, núcleo matemático, módulos |
 | [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) | Esquema de base de datos |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Fases con criterios de salida verificables |
+| [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Decisiones y cambios con consecuencias |
 
 ## Principios
 

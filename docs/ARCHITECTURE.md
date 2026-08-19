@@ -162,9 +162,30 @@ Quitar el vig de un mercado de dos lados (`p_raw` suman > 1):
 
 | Método | Cuándo | Nota |
 |---|---|---|
-| Proporcional | default v1 | `p_i / Σp`. Simple; sesga en longshots. |
-| Shin | mercados con favoritos fuertes | modela insider trading; mejor en two-way |
+| Proporcional | default v1 | `p_i / Σp`. Simple; sesgado (ver abajo) |
+| Shin | mercados asimétricos | modela dinero informado; corrige el sesgo |
 | Power | alternativa | resuelve `Σ p_i^k = 1` |
+
+**Dirección del sesgo del método proporcional.** Los books cargan más margen en
+el underdog, porque el público sobreapuesta longshots. El proporcional asume un
+reparto uniforme y deja esa distorsión intacta: **sobreestima** la probabilidad
+justa del underdog y, en consecuencia, **subestima** la del favorito.
+
+Como `edge = model_prob - fair_prob`, una fair del favorito demasiado baja
+produce edge fantasma **en los favoritos** — no en los longshots, que es lo que
+sugiere la intuición.
+
+Medido sobre un mercado 0.70/0.35 (5% de overround):
+
+| | Favorito | Underdog |
+|---|---|---|
+| Proporcional | 0.6667 | 0.3333 |
+| Shin | 0.6750 | 0.3250 |
+
+0.8 puntos de diferencia — pequeño, pero del mismo orden que los edges que
+buscamos (2-5 puntos) y sistemático, siempre en la misma dirección. La brecha
+crece con la asimetría del mercado. Verificado en
+`tests/core/test_novig.py::TestShin`.
 
 **No elegimos por gusto.** Se implementan los tres y se decide midiendo cuál
 predice mejor el resultado real usando closing lines históricos. Hasta entonces,

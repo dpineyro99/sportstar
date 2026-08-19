@@ -16,9 +16,9 @@ Repositorio vacío; auditoría convertida en diseño. Entregables:
 
 ---
 
-## Phase 1 — Core data model + núcleo matemático
+## Phase 1 — Core data model + núcleo matemático ✅
 
-Fundamentos. Sin datos externos todavía.
+Fundamentos. Sin datos externos todavía. **Completada** — ver `CHANGELOG.md`.
 
 - Scaffolding: `pyproject`, SQLAlchemy + Alembic, pytest, ruff, mypy, CI.
 - Esquema completo de `DATA_MODEL.md` en la migración inicial.
@@ -26,12 +26,12 @@ Fundamentos. Sin datos externos todavía.
 - `validation/sanity.py` con los checks del audit §2.3.
 - Seed de catálogo: sports, leagues, MLB teams, sportsbooks.
 
-**Criterios de salida**
-- `pytest tests/core` verde con casos deterministas calculados a mano.
-- Los tres métodos de no-vig coinciden dentro de tolerancia en mercados equilibrados y divergen como se espera en longshots — con el test que lo documenta.
-- Kelly con `p=0.55, odds=+100, fraction=0.25` devuelve exactamente `0.025` del bankroll; el cap corta a 5 units.
-- `alembic upgrade head` y `downgrade base` limpios.
-- Cobertura de `core/` > 95%. Es la única parte del sistema donde exijo ese número: un bug aquí es silencioso y contamina todo aguas abajo.
+**Criterios de salida** — todos verificados
+- ✅ `pytest tests/core` verde con casos deterministas calculados a mano (153 tests).
+- ✅ Los tres métodos de no-vig coinciden en mercados equilibrados y divergen como se espera en asimétricos, con el test que documenta la dirección del sesgo.
+- ✅ Kelly con `p=0.55, odds=+100, fraction=0.25` devuelve exactamente `0.025` del bankroll; el cap corta a 5 units.
+- ✅ `alembic upgrade head` y `downgrade base` limpios, más un test que detecta deriva entre modelos y migraciones.
+- ✅ Cobertura de `core/` y `validation/`: **100%** (umbral 95% forzado en CI).
 
 ---
 
@@ -200,7 +200,7 @@ consulta concreta.
 
 | Decisión | Debe resolverse antes de |
 |---|---|
-| D3 motor de BD | Phase 1 |
+| ~~D3 motor de BD~~ | ✅ resuelto: SQLite + WAL tras SQLAlchemy + Alembic |
 | D5 books objetivo | Phase 2a — define qué books entran en el consenso sharp |
 | D2 fuente de stats MLB | Phase 2b |
 | D4 definición de unit | Phase 4 |
