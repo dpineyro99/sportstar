@@ -13,7 +13,15 @@ from .clv import (
     evaluate_clv,
     model_beat_close,
 )
-from .edge import EdgeBreakdown, edge, evaluate, expected_roi, expected_value, structural_edge
+from .edge import (
+    EdgeBreakdown,
+    edge,
+    evaluate,
+    expected_roi,
+    expected_value,
+    structural_edge,
+    total_edge,
+)
 from .errors import CoreError, InvalidMarketError, InvalidOddsError, InvalidProbabilityError
 from .kelly import SizingMethod, Stake, StakeConfig, fractional_kelly, full_kelly, recommend_stake
 from .novig import NoVigMethod, remove_vig, shin_z
@@ -63,5 +71,6 @@ __all__ = [
     "remove_vig",
     "shin_z",
     "structural_edge",
+    "total_edge",
     "vig",
 ]

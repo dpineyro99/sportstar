@@ -16,6 +16,7 @@ from alembic.config import Config
 
 from .db.catalog import League, Sport, Sportsbook, Team
 from .db.session import create_db_engine, create_session_factory, database_url, session_scope
+from .demo import run_demo
 from .seeds import seed_catalog
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -73,9 +74,11 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("init", help="aplica migraciones")
     sub.add_parser("seed", help="puebla el catálogo")
     sub.add_parser("status", help="resumen del contenido de la base")
+    sub.add_parser("demo", help="ejecuta el pipeline con precios sintéticos")
     args = parser.parse_args(argv)
 
-    return {"init": cmd_init, "seed": cmd_seed, "status": cmd_status}[args.command]()
+    commands = {"init": cmd_init, "seed": cmd_seed, "status": cmd_status, "demo": run_demo}
+    return commands[args.command]()
 
 
 if __name__ == "__main__":

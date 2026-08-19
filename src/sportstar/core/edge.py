@@ -49,6 +49,28 @@ def structural_edge(market_fair_prob: float, best_available_decimal: float) -> f
     return q - decimal_to_implied(best_available_decimal)
 
 
+def total_edge(model_prob: float, best_available_decimal: float) -> float:
+    """Ventaja total sobre el precio que realmente vas a pagar.
+
+    Descompone exactamente en las dos fuentes de ventaja del sistema:
+
+        total_edge = (model_prob - fair)  +  (fair - implied_best)
+                   =      edge            +   structural_edge
+
+    Es la magnitud que decide si una apuesta es +EV: `total_edge > 0` si y solo
+    si `expected_value > 0`. Por eso es la que filtran los gates, mientras que
+    `edge` y `structural_edge` se conservan por separado para poder atribuir de
+    dónde vino la ventaja.
+
+    La distinción no es académica. `market_consensus_v1` tiene `edge = 0` por
+    construcción —copia al mercado— y aun así produce apuestas rentables vía
+    `structural_edge`. Filtrar por `edge` dejaría al baseline de mercado sin
+    recomendar nada, que es justo lo que Phase 2a necesita medir.
+    """
+    p = validate_probability(model_prob, name="model_prob")
+    return p - decimal_to_implied(best_available_decimal)
+
+
 def expected_value(model_prob: float, decimal_odds: float) -> float:
     """EV por unidad apostada. `0.084` = +8.4% de ROI esperado.
 
@@ -91,6 +113,7 @@ class EdgeBreakdown:
     best_decimal: float
     edge: float
     structural_edge: float
+    total_edge: float
     expected_value: float
     break_even_prob: float
 
@@ -121,6 +144,7 @@ def evaluate(
         best_decimal=best,
         edge=edge(model_prob, market_fair_prob),
         structural_edge=structural_edge(market_fair_prob, best),
+        total_edge=total_edge(model_prob, best),
         expected_value=expected_value(model_prob, best),
         break_even_prob=decimal_to_implied(best),
     )

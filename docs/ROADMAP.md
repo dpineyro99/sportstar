@@ -50,12 +50,20 @@ Se parte en dos sub-fases para no mezclar "¿funciona el pipeline?" con
 
 ### 2a — Pipeline con el mercado como modelo
 
-- Providers: schedule/scores, stats, lineups/pitchers, odds.
-- Entity resolution + cola de `unmatched_entities`.
-- **`market_consensus_v1`**: primer `SportModel`, devuelve el consenso sharp sin vig.
-- Pipeline: odds sync → consensus no-vig → candidates → filtros → recommendations.
-- Job de captura de closing line, **slate completo**.
-- API mínima + Data Health.
+**Lógica interna: completada.** Ver `CHANGELOG.md`.
+
+- ✅ Entity resolution + cola de `unmatched_entities`.
+- ✅ **`market_consensus_v1`**: primer `SportModel`, devuelve el consenso sharp sin vig.
+- ✅ Agregación de odds: consenso, mejor precio ejecutable, apertura, cierre, movimiento.
+- ✅ Pipeline: consensus no-vig → candidates → filtros → confidence → stake.
+- ✅ Instrumentación de jobs (`JobReport`) con la regla `matched == 0` ⇒ FAILED.
+- ⏳ Providers HTTP: schedule/scores, stats, lineups/pitchers, odds.
+- ⏳ Job de captura de closing line, **slate completo**.
+- ⏳ API mínima + Data Health.
+
+Los providers quedan pendientes a propósito: escribir un normalizador contra un
+esquema recordado en vez de contra respuestas reales es trabajo especulativo que
+se rehace entero en cuanto se ve el primer payload. Requieren red y una API key.
 
 Al final de 2a el sistema recomienda apuestas sin que exista todavía ningún
 modelo estadístico. Lo que mida aquí es edge estructural puro (`ARCHITECTURE.md`

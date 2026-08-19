@@ -158,3 +158,36 @@ class TestEvaluate:
         result = evaluate(model_prob=0.58, market_fair_prob=0.55, reference_decimal=1.9)
         with pytest.raises(FrozenInstanceError):
             result.edge = 0.99  # type: ignore[misc]
+
+
+class TestTotalEdge:
+    """La ventaja que de verdad determina el EV."""
+
+    def test_decomposes_into_model_edge_plus_structural_edge(self) -> None:
+        from sportstar.core.edge import total_edge
+
+        model_prob, fair, best = 0.58, 0.55, 2.0
+        assert total_edge(model_prob, best) == pytest.approx(
+            edge(model_prob, fair) + structural_edge(fair, best), abs=1e-12
+        )
+
+    def test_is_positive_exactly_when_ev_is_positive(self) -> None:
+        from sportstar.core.edge import total_edge
+
+        for model_prob in (0.30, 0.45, 0.49, 0.50, 0.51, 0.70):
+            for best in (1.5, 1.91, 2.0, 2.5, 4.0):
+                assert (total_edge(model_prob, best) > 0) == (expected_value(model_prob, best) > 0)
+
+    def test_the_market_baseline_has_zero_model_edge_but_nonzero_total(self) -> None:
+        """Por qué los gates filtran por la total y no por la de modelo.
+
+        `market_consensus_v1` copia al mercado: su edge de modelo es 0 por
+        construcción. Filtrar por él dejaría al baseline sin recomendar nada, y
+        con él se iría toda la medición del edge estructural.
+        """
+        from sportstar.core.edge import total_edge
+
+        fair = 0.55
+        model_prob = fair  # el modelo ES el mercado
+        assert edge(model_prob, fair) == pytest.approx(0.0, abs=1e-12)
+        assert total_edge(model_prob, 2.10) > 0.02

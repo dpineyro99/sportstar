@@ -84,3 +84,102 @@ fijado en `tests/core/test_novig.py::TestShin` para que no vuelva a derivar.
 
 Ningún proveedor de datos, ningún modelo, ningún job. Phase 1 es cimiento: sin
 datos externos no hay nada que pueda fallar en silencio todavía.
+
+---
+
+## Phase 2a — Pipeline con el mercado como modelo (lógica interna)
+
+**Estado:** lógica completada, providers HTTP pendientes. 337 tests, 96% de
+cobertura del paquete, `ruff` y `mypy --strict` limpios.
+
+`python -m sportstar.cli demo` ejecuta el ciclo completo con precios sintéticos.
+
+### Lo que demuestra
+
+El pipeline produce recomendaciones **sin ningún modelo estadístico**. En la
+demo, `market_consensus_v1` copia al mercado —edge de modelo exactamente 0— y aun
+así recomienda 1.90 units sobre los Yankees a +115, con ROI esperado del +8.7%.
+Toda la ventaja viene del edge estructural: DraftKings paga 2.15 donde el
+consenso de Pinnacle y Circa dice que lo justo son ~1.98.
+
+Es el suelo del sistema, y establece la vara contra la que se juzgará cualquier
+modelo posterior.
+
+### Bug de diseño encontrado y corregido: el gate mataba al baseline
+
+Al ejecutar el pipeline por primera vez, **cero recomendaciones**. La causa no
+era un fallo de cálculo sino de definición: los gates filtraban por el *edge de
+modelo* (`model_prob − fair_prob`), que para `market_consensus_v1` es 0 por
+construcción. El baseline de mercado no podía recomendar nada nunca, y con él se
+iba toda la medición del edge estructural — es decir, el objetivo entero de
+Phase 2a.
+
+La corrección obliga a nombrar bien las tres magnitudes:
+
+```
+edge            = model_prob − market_fair_prob      ¿sé algo que el mercado no?
+structural_edge = market_fair_prob − implied(best)   ¿es el precio mejor que el justo?
+total_edge      = model_prob − implied(best)         = edge + structural_edge
+```
+
+`total_edge` es la que determina el EV: `total_edge > 0` si y solo si `EV > 0`.
+Es la que filtran los gates y la que alimenta el confidence. Las otras dos se
+conservan por separado para poder **atribuir** de dónde vino la ventaja, que es
+justamente lo que el brief pedía no confundir nunca.
+
+Efecto lateral: el confidence también estaba roto por lo mismo (con edge 0, el
+componente `model_agreement` se iba a 0 y el score caía a 3.7 en una apuesta
+buena). Ahora da 8.6.
+
+### Hallazgo: un fallback de emparejamiento que no podía dispararse
+
+El resolver tenía como último recurso un solapamiento de tokens (Jaccard) con
+umbral 0.80. Los nombres de equipo MLB tienen 2-3 tokens, así que el máximo
+alcanzable sin que la coincidencia exacta ya lo hubiera resuelto es 0.75: la red
+de seguridad era código muerto para el deporte que estamos construyendo.
+
+Sustituida por **emparejamiento por subconjunto**: los tokens del catálogo caben
+enteros dentro del nombre entrante. Resuelve el caso real ("New York Yankees
+Baseball Club") manteniendo las dos salvaguardas que importan:
+
+- Es subconjunto, no solapamiento: "New York" a secas no resuelve a ninguno de
+  los dos equipos de la ciudad, porque le faltan tokens.
+- Si varios equipos encajan, gana el de más tokens **y solo si es estrictamente
+  el más largo**. Un empate se deja sin resolver: ante ambigüedad, la cola de
+  revisión es preferible a acertar por suerte.
+
+El Jaccard se conserva para ligas con nombres largos, donde sí aporta.
+
+### Decisiones de diseño que conviene recordar
+
+**El orden de las operaciones al calcular el consenso.** Hay que quitar el vig a
+cada book **por separado** y luego promediar. Promediar las implied con vig y
+quitar el vig al final da un resultado distinto y sesgado, porque cada book carga
+un margen distinto y el promedio lo mezcla con la señal. Verificado
+numéricamente en `test_devig_per_book_then_average_differs_from_the_naive_order`.
+
+**La incertidumbre del baseline sale gratis.** `market_consensus_v1` deriva su
+intervalo de la discrepancia entre books de referencia: cuando Pinnacle y Circa
+difieren, el mercado está menos seguro, y esa duda se propaga hasta el confidence
+en vez de perderse en el promedio.
+
+**Componentes ausentes del confidence cuentan como neutro (0.5), no se excluyen.**
+Excluirlos y renormalizar haría que una apuesta sobre la que sabemos *menos*
+puntuase *más alto*. Es el fallo silencioso de casi todos los scores compuestos.
+
+**Un mercado incompleto no se estima.** Si un book no publica todos los lados, se
+excluye del consenso en vez de rellenar el hueco: sin el mercado completo no se
+puede saber cuánto margen lleva el precio, y una constante inventada llega intacta
+hasta el edge.
+
+### Restricción del entorno
+
+La política de red de esta sesión deniega la salida a `statsapi.mlb.com` y
+`api.the-odds-api.com` (403 en CONNECT del proxy). Los adaptadores HTTP se dejan
+para escribirlos contra respuestas reales: un normalizador escrito contra un
+esquema recordado se rehace entero al ver el primer payload.
+
+### Qué NO se hizo
+
+Providers HTTP, job de captura de cierres, API y Data Health panel. Todo lo que
+falta de 2a depende de tener datos reales entrando.

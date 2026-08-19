@@ -23,13 +23,16 @@ jobs:
         run: ruff format --check src tests
       - name: Types
         run: mypy
-      - name: Tests
-        # El núcleo matemático es la única parte donde un bug no lanza excepción:
-        # contamina en silencio cada número aguas abajo. De ahí el umbral duro.
+      - name: Tests (núcleo matemático)
+        # El núcleo es la única parte donde un bug no lanza excepción: contamina
+        # en silencio cada número aguas abajo. De ahí el umbral más alto.
         run: |
           pytest -q \
             --cov=sportstar.core --cov=sportstar.validation \
             --cov-report=term-missing --cov-fail-under=95
+      - name: Tests (paquete completo)
+        run: |
+          pytest -q --cov=sportstar --cov-report=term-missing --cov-fail-under=90
       - name: Migrations round-trip
         env:
           SPORTSTAR_DATABASE_URL: sqlite:///ci.db
