@@ -21,6 +21,28 @@ Corolario que gobierna todo el diseño: **la salida primaria de un modelo es una
 probabilidad calibrada, no un pick.** El pick es una consecuencia de comparar esa
 probabilidad con un precio.
 
+### 1.1 Las dos fuentes de edge
+
+Distinción central del proyecto. El brief las trataba como una sola; son
+mecanismos distintos, con dificultad y horizonte distintos, y el sistema debe
+medirlas por separado.
+
+**Edge de modelo** — nuestra probabilidad es mejor que la del mercado. En
+mercados líquidos (MLB moneyline con Pinnacle al otro lado) esto significa
+competir contra equipos cuantitativos con datos que no tenemos. Es difícil y no
+se debe asumir alcanzable.
+
+**Edge estructural** — no le ganamos a la estimación del mercado; explotamos
+dispersión de precios entre books, líneas obsoletas y el sesgo de los books
+recreativos hacia el lado popular. Aquí no competimos contra el book más
+eficiente, sino contra el más lento.
+
+La mayoría de los apostadores pequeños rentables viven del segundo. Y el
+segundo **no requiere modelo**: es una consecuencia directa de tener snapshots
+correctos y comparar books (§4.2). Por eso la infraestructura de datos tiene
+prioridad sobre el modelado, y por eso el primer modelo del sistema es el
+mercado mismo (§5.3).
+
 ---
 
 ## 2. Las tres decisiones irreversibles
@@ -163,6 +185,18 @@ El edge se mide contra la mejor estimación que existe del mercado. El EV se
 calcula con el precio que realmente puedes conseguir. Confundirlos produce
 o bien edge fantasma o bien EV subestimado.
 
+Consecuencia que conviene hacer explícita: si en la fórmula anterior se sustituye
+`model_prob` por `fair_prob`, queda
+
+```
+edge_estructural = fair_prob_sharp - implied_prob_best_book
+```
+
+que es **positivo en expectativa sin ningún modelo**. Es el edge estructural de
+§1.1 — line shopping formalizado. Establece el suelo del sistema: cualquier
+modelo estadístico tiene que justificar su existencia mejorando este número, no
+simplemente siendo positivo.
+
 ### 4.3 EV y ROI
 
 ```
@@ -202,6 +236,42 @@ beat_close_rate  = % de apuestas con CLV_precio > 0
 El CLV de probabilidad usa el cierre **sin vig**, que es la estimación final y
 mejor calibrada del mercado. Es la métrica de referencia para decidir si una
 estrategia funciona antes de tener muestra suficiente de P&L.
+
+### 4.6 Validar un modelo sin apostar
+
+Medir una estrategia por su P&L exige muestras que tardan temporadas en
+acumularse. Medirla por CLV es entre 8 y 10 veces más eficiente, pero sigue
+exigiendo cientos de apuestas:
+
+| Qué queremos demostrar | Apuestas necesarias |
+|---|---|
+| Beat-close rate real del 55% (vs 50%) | ~500-1.000 |
+| ROI real del +3% | ~5.000-8.000 |
+
+Con ~2-3 apuestas diarias, la segunda fila es una década. Incluso la primera es
+una temporada completa. Es un problema de diseño, no de paciencia.
+
+**La salida:** para juzgar un modelo no hace falta apostar. Basta comparar su
+probabilidad contra la *closing fair probability* de cada evento:
+
+```
+¿está model_prob(as_of=T) más cerca del cierre que la línea de apertura?
+```
+
+Si la respuesta es sí de forma sistemática, el modelo contiene información que
+el mercado todavía no había incorporado en `T`. Eso es exactamente lo que
+predice rentabilidad, y se mide sobre **todos los eventos**, no solo sobre los
+que superaron el filtro — multiplicando la muestra por uno o dos órdenes de
+magnitud y sin arriesgar nada.
+
+Requisito operativo que se deriva de esto: **el job de captura de cierre cubre
+el slate completo, no solo lo recomendado** (§9). Es barato y es lo que hace
+viable la validación estadística en plazos razonables.
+
+Separación que se mantiene en todo el sistema:
+
+- **Evaluación del modelo** → sobre todos los candidates, contra el cierre.
+- **Evaluación del filtro** → solo sobre recomendaciones. Muestra pequeña, conclusiones más lentas y provisionales.
 
 ---
 
@@ -283,6 +353,27 @@ Diseño: tabla persistente de alias + matching por `(fecha, equipos normalizados
 con umbral de confianza. **Lo que no empareja no se descarta en silencio: se
 escribe en una cola de revisión y se cuenta en el log.** Un `matched: 0` debe
 gritar, nunca pasar desapercibido.
+
+### 5.3 El primer modelo es el mercado
+
+`market_consensus_v1` es un `SportModel` como cualquier otro, salvo que su
+`predict_proba` devuelve el consenso sharp sin vig. Un modelo que copia al
+mercado.
+
+Parece un chiste y hace tres cosas que ningún modelo estadístico puede hacer al
+principio:
+
+1. **Valida el pipeline end-to-end** sin que el resultado dependa de la calidad del modelado. Si el ciclo completo no funciona con este modelo, el problema está en los datos, no en el modelo.
+2. **Aísla y cuantifica el edge estructural** (§1.1). Cuánto vale, en unidades, solo tener buenos snapshots y comparar books.
+3. **Fija la vara de aceptación.** Todo modelo posterior se compara contra él.
+
+**Regla de despliegue:** un modelo no pasa a `is_active` si no bate a
+`market_consensus_v1` en Brier score sobre un test temporal. Ese es el criterio,
+y no admite "pero el ROI del backtest era bueno" — un ROI positivo con peor
+calibración que el mercado es varianza, no ventaja.
+
+Esto convierte el riesgo R4 del audit (los baselines no le ganan al cierre) de
+amenaza existencial en criterio de aceptación verificable.
 
 ---
 
@@ -394,9 +485,14 @@ Frecuencias distintas por naturaleza del dato:
 | predictions | tras lineups | |
 | recommendations | tras cada odds sync | el precio se mueve, el edge también |
 | settlement | tras final del evento | |
-| closing line capture | al `start_time` | **no se puede recuperar después** |
+| closing line capture | al `start_time` | **slate completo**; no se puede recuperar después |
 
 `closing line capture` es el job cuyo fallo es irreversible. Merece alerta propia.
+
+Captura **todas** las selections con precio observado, no solo aquellas sobre las
+que hubo recomendación. El coste marginal es despreciable y es lo que hace
+posible la validación de §4.6: sin cierres de todo el slate, la muestra queda
+limitada a las apuestas y la validación estadística se va a temporadas.
 
 ---
 

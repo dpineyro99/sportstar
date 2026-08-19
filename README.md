@@ -20,8 +20,11 @@ estimar probabilidades calibradas, compararlas contra la probabilidad justa
 ## Principios
 
 1. Probabilidades calibradas, no picks binarios.
-2. CLV como métrica central de éxito, por encima del P&L a corto plazo.
-3. Odds append-only: un precio histórico nunca se sobrescribe.
-4. Features point-in-time (`as_of`): el data leakage es imposible por construcción.
-5. Cada predicción sabe qué modelo y qué features la generaron.
-6. Un resultado extraordinario se trata como un bug hasta demostrar lo contrario.
+2. Dos fuentes de edge distintas: **estructural** (dispersión de precios entre books, no requiere modelo) y **de modelo** (nuestra probabilidad supera a la del mercado). Se miden por separado.
+3. El primer modelo es el mercado. Ninguno se despliega si no bate al consenso sharp en calibración.
+4. CLV como métrica central de éxito, por encima del P&L a corto plazo.
+5. Odds append-only: un precio histórico nunca se sobrescribe.
+6. Cierres capturados del slate completo: permite validar modelos sin apostar.
+7. Features point-in-time (`as_of`): el data leakage es imposible por construcción.
+8. Cada predicción sabe qué modelo y qué features la generaron.
+9. Un resultado extraordinario se trata como un bug hasta demostrar lo contrario.

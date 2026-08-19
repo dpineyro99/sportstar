@@ -65,7 +65,7 @@ falla — y dónde el brief ya acierta o todavía tiene un hueco.
 | Decisión | Por qué importa |
 |---|---|
 | Separar `implied` / `no-vig` / `model` probability | Es el error #1 en sistemas amateur: comparar el modelo contra el precio con vig infla el edge ~2-3% de forma sistemática y constante. |
-| CLV como métrica central | El P&L necesita ~1.000+ apuestas para tener significancia; el CLV da señal con ~100. Es el único feedback rápido y honesto que existe. |
+| CLV como métrica central | Demostrar un ROI real del +3% exige ~5.000-8.000 apuestas; un beat-close rate del 55%, ~500-1.000. El CLV es 8-10x más eficiente en muestra y es el feedback honesto más rápido que existe. Ver R8. |
 | Snapshots históricos, nunca sobrescribir | Sin esto el backtest es irreproducible y el CLV incalculable. Irrecuperable a posteriori. |
 | Separar `candidate` de `recommended` | Permite medir el filtro por separado del modelo. Sin esta separación no se puede saber si el filtro añade o destruye valor. |
 | "Trata resultados extraordinarios como bugs" | Correcto y poco común. Lo convertimos en código, no en buena intención (§2.3). |
@@ -109,7 +109,35 @@ sí dicta la estrategia: el primer objetivo no es "ganarle al cierre", es
 score comparable al del mercado de apertura, ya tenemos una base sobre la que
 buscar nichos. Si el modelo ni siquiera se acerca, ningún filtro de edge lo va a
 arreglar — y el sistema debe decírnoslo en Phase 2, no en Phase 9.
-→ Criterio de salida explícito en `ROADMAP.md` Phase 2.
+
+**Resolución (discutido 2026-08-19).** El riesgo se reformula al separar las dos
+fuentes de edge (`ARCHITECTURE.md` §1.1): el *edge de modelo* efectivamente es
+difícil y no se asume alcanzable, pero el *edge estructural* — dispersión de
+precios entre books, líneas obsoletas, sesgo recreativo — no requiere modelo y
+la arquitectura ya lo captura. Dos consecuencias adoptadas:
+
+1. El primer modelo del sistema es `market_consensus_v1`, el propio consenso
+   sharp sin vig (`ARCHITECTURE.md` §5.3). Valida el pipeline sin depender de la
+   calidad del modelado, cuantifica el edge estructural en aislamiento, y fija la
+   vara: ningún modelo se despliega si no bate su Brier score.
+2. R4 deja de ser amenaza existencial y pasa a ser criterio de aceptación
+   verificable. → `ROADMAP.md` Phase 2.
+
+**R8 — La muestra necesaria no cabe en el calendario.** *(riesgo alto, detectado al revisar el roadmap)*
+Con ~15 partidos MLB diarios y apostando ~15% del slate salen 2-3 apuestas al día:
+**60-90 en 30 días**. Con esa muestra un beat-close rate del 55% es
+indistinguible del azar, y el ROI necesitaría años. El criterio de salida
+original de Phase 4 ("30 días") era operativo disfrazado de estadístico.
+
+Solución adoptada: **no hace falta apostar para validar un modelo**
+(`ARCHITECTURE.md` §4.6). Comparando `model_prob` contra la closing fair
+probability de cada evento se mide la misma señal sobre el slate completo en vez
+de sobre lo apostado — 1-2 órdenes de magnitud más muestra, sin riesgo. Requiere
+capturar cierres de todo el slate, no solo de lo recomendado; coste marginal
+despreciable. El criterio de Phase 4 queda partido en operativo y estadístico.
+
+Efecto lateral relevante: al generar histórico propio de cierres desde el día 1,
+baja la urgencia de comprar el histórico de odds de terceros (R7).
 
 **R5 — El edge se mide contra un precio que ya no existe.** *(riesgo medio)*
 Un snapshot de odds de hace 40 minutos produce edge fantasma. Necesitamos
@@ -141,6 +169,7 @@ y **bloquea** el reporte si dispara:
 - Suma de implied probs de un mercado < 1.0 (arbitraje aparente = casi siempre precio corrupto o línea mal emparejada).
 - Eventos duplicados por `(sport, start_time, home, away)`.
 - Distribución de edge con media muy positiva → suele indicar error de vig, no ventaja.
+- Cobertura de closing lines < 95% del slate → la validación de §4.6 pierde potencia y sesga hacia los eventos que sí se capturaron.
 
 Un backtest que no pasa estos checks no produce número, produce un error.
 
@@ -150,7 +179,7 @@ Un backtest que no pasa estos checks no produce número, produce un error.
 
 | # | Decisión | Recomendación | Bloquea |
 |---|---|---|---|
-| D1 | Proveedor de odds y si contratamos histórico | The Odds API para live; validar coste del histórico antes de comprometer Phase 3 | Phase 3 |
+| D1 | Proveedor de odds y si contratamos histórico | The Odds API para live. La captura propia de cierres del slate completo (R8) genera histórico útil desde el día 1, así que la compra deja de ser bloqueante y pasa a ser aceleración | Phase 3 |
 | D2 | Fuente de stats MLB | MLB Stats API oficial (gratis, granular, con histórico) | Phase 2 |
 | D3 | Motor de base de datos | SQLite + WAL detrás de SQLAlchemy + Alembic; migración a Postgres sin reescribir | Phase 1 |
 | D4 | Bankroll de referencia en unidades | 1 unit = 1% del bankroll; todo se reporta en units, nunca en dólares | Phase 4 |

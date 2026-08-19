@@ -39,18 +39,38 @@ Fundamentos. Sin datos externos todavía.
 
 Un solo deporte, un solo mercado (moneyline), ciclo completo funcionando.
 
+MLB no es donde vive la ineficiencia — es el mercado más eficiente y con el vig
+más bajo de la lista. Se elige igualmente para esta fase porque es el mejor sitio
+para **construir infraestructura**: datos oficiales gratuitos y granulares
+(MLB Stats API), volumen diario alto y temporada larga. Las expectativas de edge
+de modelo se fijan en consecuencia: bajas.
+
+Se parte en dos sub-fases para no mezclar "¿funciona el pipeline?" con
+"¿funciona el modelo?".
+
+### 2a — Pipeline con el mercado como modelo
+
 - Providers: schedule/scores, stats, lineups/pitchers, odds.
 - Entity resolution + cola de `unmatched_entities`.
+- **`market_consensus_v1`**: primer `SportModel`, devuelve el consenso sharp sin vig.
+- Pipeline: odds sync → consensus no-vig → candidates → filtros → recommendations.
+- Job de captura de closing line, **slate completo**.
+- API mínima + Data Health.
+
+Al final de 2a el sistema recomienda apuestas sin que exista todavía ningún
+modelo estadístico. Lo que mida aquí es edge estructural puro (`ARCHITECTURE.md`
+§1.1) y es el suelo contra el que se juzga todo lo demás.
+
+### 2b — Primer modelo estadístico
+
 - `FeatureBuilder` MLB v1: fuerza de equipo, forma reciente, starting pitcher
   (FIP/xFIP), bullpen y su fatiga, splits de lateralidad, park factor, descanso,
   home/away. Todo con `as_of`.
 - Modelos baseline: Elo con ajuste por pitcher + regresión logística.
-- Pipeline: odds sync → consensus no-vig → candidates → filtros → recommendations.
-- Job de captura de closing line.
-- API mínima + Data Health.
 
-**Criterios de salida** — los dos primeros son los que de verdad importan:
-- **Calibración:** Brier score del modelo en test temporal **≤ el de la línea de apertura del mercado**. Si no llega, no se avanza: se itera en features o se acepta que MLB moneyline no es nuestro mercado. Este es el riesgo R4 del audit y es el punto donde el proyecto se valida o se replantea.
+**Criterios de salida**
+- **Cobertura de cierres ≥ 95% del slate.** Habilita toda la validación posterior; sin esto Phase 3 y 4 no tienen muestra. Es el criterio que más fácil se pasa por alto y el único irrecuperable.
+- **Vara de modelo:** Brier score en test temporal **≤ el de `market_consensus_v1`**. Si `mlb_moneyline_v1` no bate al mercado, no se despliega — y eso es un resultado válido de la fase, no un fracaso. Seguimos con el edge estructural y se busca el edge de modelo en mercados menos eficientes (Phase 6).
 - **Reproducibilidad:** recalcular features con `as_of = bet_time` reproduce exactamente lo que se guardó en producción.
 - Ninguna feature viola el invariante point-in-time (verificado, no asumido).
 - `matched / received > 95%` sostenido durante 7 días de odds sync.
@@ -60,15 +80,20 @@ Un solo deporte, un solo mercado (moneyline), ciclo completo funcionando.
 
 ## Phase 3 — Backtesting engine
 
-Depende de D1 (histórico de odds). **Resolver antes de empezar.**
+D1 (histórico de odds comprado) acelera esta fase pero ya no la bloquea: los
+cierres del slate completo capturados desde Phase 2a generan histórico propio
+utilizable.
 
 - Replay point-in-time: reconstruye el estado del mundo en `T` y ejecuta el pipeline.
+- **Evaluación contra el cierre sobre todos los candidates**, no solo sobre apuestas
+  (`ARCHITECTURE.md` §4.6). Es la vía principal de validación por su muestra.
 - Métricas: bets, record, units, ROI, yield, max drawdown, ratio tipo Sharpe, CLV.
 - Cortes: deporte, mercado, bucket de edge, confidence, book, versión de modelo.
 - Calibración: Brier, log loss, curva de fiabilidad, ROC-AUC.
 - `sanity.py` integrado y bloqueante.
 
 **Criterios de salida**
+- Separación explícita en los reportes entre evaluación de **modelo** (todos los candidates) y evaluación de **filtro** (solo recomendaciones). Nunca se mezclan: tienen tamaños de muestra que difieren en dos órdenes de magnitud.
 - El backtest sobre el periodo de paper trading reproduce sus resultados reales dentro de tolerancia. Si divergen, el backtest está mal — no el paper trading.
 - Todo backtest pasa sanity checks o no muestra métricas.
 - Curva de calibración publicada.
@@ -89,11 +114,19 @@ trading en vivo no.
 - Reporte diario y rolling 7/30/season/all-time.
 - Recalibración del Confidence Score → `confidence_version = 1`.
 
-**Criterios de salida**
+**Criterios de salida — operativos** (verificables en ~30 días)
 - 30 días continuos sin intervención manual.
-- **`beat_closing_line > 50%` de forma sostenida.** Esta es la métrica que decide si el sistema tiene ventaja real. El P&L a 30 días no dice nada — la varianza lo domina.
 - Cero picks generados post-inicio del evento.
-- Cero closing lines perdidas.
+- Cero closing lines perdidas; cobertura del slate ≥ 95%.
+- El backtest de Phase 3 reproduce los resultados del paper trading dentro de tolerancia.
+
+**Criterios de salida — estadísticos** (no dependen del calendario, sino de la muestra)
+- `model_beat_close` significativamente > 50% sobre **todos los candidates**, con n ≥ 1.000. Esta es la métrica que decide si hay ventaja real, y la muestra llega en semanas gracias a la captura del slate completo.
+- Edge estructural de `market_consensus_v1` medido y positivo. Si ni el line shopping produce CLV, hay un bug en el pipeline de precios — no una falta de ventaja.
+
+**Lo que NO es criterio de salida:** el ROI o el récord a 30 días. Con 60-90
+apuestas la varianza lo domina por completo; leer ese número como señal es el
+error que el riesgo R8 del audit describe. Se reporta, no se decide con él.
 
 **PAPI SCORE** se define aquí, con evidencia. No antes.
 
@@ -168,10 +201,10 @@ consulta concreta.
 | Decisión | Debe resolverse antes de |
 |---|---|
 | D3 motor de BD | Phase 1 |
-| D2 fuente de stats MLB | Phase 2 |
-| D5 books objetivo | Phase 2 |
-| D1 histórico de odds | Phase 3 |
+| D5 books objetivo | Phase 2a — define qué books entran en el consenso sharp |
+| D2 fuente de stats MLB | Phase 2b |
 | D4 definición de unit | Phase 4 |
+| D1 histórico de odds | opcional; acelera Phase 3, ya no la bloquea |
 
 ---
 
@@ -185,3 +218,5 @@ Registrado explícitamente para no reabrirlo cada dos semanas:
 - Métricas propietarias (PAPI SCORE) sin evidencia que justifique los pesos.
 - App nativa antes de que la PWA demuestre ser insuficiente.
 - Optimizar el backtest hasta que quede bonito. Un backtest que mejora cada vez que lo tocas ya no mide nada.
+- Desplegar un modelo que no bate a `market_consensus_v1` en calibración, por bueno que sea su ROI en backtest.
+- Sacar conclusiones de un ROI con muestra de tres cifras.

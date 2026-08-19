@@ -137,6 +137,10 @@ CREATE INDEX ix_odds_sel_book_time ON odds_snapshots(selection_id, sportsbook_id
 nueva. La tabla crece rápido y da igual: es el activo más valioso del sistema
 y el único que no se puede reconstruir a posteriori.
 
+El snapshot tomado al `start_time` de cada evento se captura para **todas** las
+selections observadas, no solo las apostadas. Es lo que convierte esta tabla en
+el dataset de validación del sistema y no solo en el registro de precios.
+
 Vistas derivadas (materializadas si hace falta): `v_opening_line`,
 `v_current_line`, `v_closing_line`, `v_best_available`, `v_consensus_novig`.
 
@@ -234,7 +238,13 @@ candidates (
   data_quality_score,
   model_agreement,
 
-  as_of, created_at
+  as_of, created_at,
+
+  -- rellenado por el job de cierre, para TODO candidate (ARCHITECTURE §4.6)
+  closing_odds_snapshot_id,
+  closing_fair_prob,
+  clv_probability,          -- closing_fair_prob - market_fair_prob(as_of)
+  model_beat_close          -- |model_prob - closing| < |fair_prob(as_of) - closing|
 )
 ```
 
@@ -245,6 +255,16 @@ estructuralmente imposible.
 
 Se persiste **todo** candidate, incluidos los que no se recomiendan. Es lo que
 permite responder después "¿qué habría pasado con umbral 2% en vez de 3%?".
+
+Los cuatro campos de cierre son la base de la validación sin apuestas
+(`ARCHITECTURE.md` §4.6). `model_beat_close` responde por cada candidate si
+nuestra probabilidad estaba más cerca del cierre que la del mercado en ese
+momento — la señal que predice rentabilidad, medible sobre el slate entero en
+vez de solo sobre lo apostado. Es una muestra 1-2 órdenes de magnitud mayor.
+
+`bet_results` conserva sus propios campos de CLV (§6) porque miden algo distinto:
+el CLV *del precio que realmente tomamos en el book donde apostamos*, no el del
+precio de referencia. Ambos son necesarios y no se sustituyen.
 
 ```sql
 recommendations (
