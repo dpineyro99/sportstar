@@ -128,17 +128,28 @@ def evaluate(
     market_fair_prob: float,
     reference_decimal: float,
     best_decimal: float | None = None,
+    market_implied_prob: float | None = None,
 ) -> EdgeBreakdown:
     """Evalúa una selección. `best_decimal` cae al de referencia si no se pasa.
 
     Que `best_decimal` sea opcional refleja el caso real de un book único; que
     sea un parámetro separado impide que el caso general los confunda.
+
+    `market_implied_prob` debe pasarse cuando la referencia es un **consenso**:
+    ahí no existe un precio único con vig, y derivarla de `reference_decimal`
+    devolvería la propia fair probability redicha. Con un solo book de referencia
+    sí se puede derivar, y por eso es opcional.
     """
     best = validate_decimal(best_decimal if best_decimal is not None else reference_decimal)
     ref = validate_decimal(reference_decimal)
+    implied = (
+        validate_probability(market_implied_prob, name="market_implied_prob")
+        if market_implied_prob is not None
+        else decimal_to_implied(ref)
+    )
     return EdgeBreakdown(
         model_prob=validate_probability(model_prob, name="model_prob"),
-        market_implied_prob=decimal_to_implied(ref),
+        market_implied_prob=implied,
         market_fair_prob=validate_probability(market_fair_prob, name="market_fair_prob"),
         reference_decimal=ref,
         best_decimal=best,

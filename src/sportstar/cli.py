@@ -89,6 +89,21 @@ def cmd_health() -> int:
     return 0 if healthy else 1
 
 
+def cmd_serve() -> int:
+    """Levanta la API.
+
+    `0.0.0.0` a propósito: el objetivo es abrirla desde el iPhone en la misma
+    red, que es la prueba real de la fase mobile. En cuanto salga de localhost
+    hará falta autenticación — la API es de solo lectura, pero el histórico de
+    decisiones no tiene por qué ser público.
+    """
+    import uvicorn
+
+    print("API en http://0.0.0.0:8000    documentación en /docs")
+    uvicorn.run("sportstar.api:app", host="0.0.0.0", port=8000, log_level="info")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="sportstar", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -98,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("demo", help="ejecuta el pipeline con precios sintéticos")
     sub.add_parser("capture", help="captura fixtures reales de los proveedores")
     sub.add_parser("health", help="checks de calidad de datos")
+    sub.add_parser("serve", help="levanta la API HTTP")
     args = parser.parse_args(argv)
 
     commands = {
@@ -107,6 +123,7 @@ def main(argv: list[str] | None = None) -> int:
         "demo": run_demo,
         "capture": run_capture,
         "health": cmd_health,
+        "serve": cmd_serve,
     }
     return commands[args.command]()
 

@@ -57,6 +57,10 @@ class ConsensusResult:
     """
 
     fair_probabilities: dict[int, float]
+    # Implícitas CON vig promediadas entre books de referencia. Su diferencia con
+    # `fair_probabilities` es el margen que carga el mercado sharp en ese lado —
+    # información real, no un duplicado de la fair.
+    implied_probabilities: dict[int, float]
     per_book: tuple[tuple[int, dict[int, float]], ...]
     method: NoVigMethod
     as_of: datetime
@@ -164,6 +168,7 @@ def consensus_fair_probabilities(
     """
     state = market_state(points, as_of)
     per_book: list[dict[int, float]] = []
+    per_book_implied: list[dict[int, float]] = []
     books_used: list[int] = []
     snapshot_ids: list[int] = []
 
@@ -173,6 +178,9 @@ def consensus_fair_probabilities(
         fair = book_fair_probabilities(state[book_id], selections, method)
         if fair is not None:
             per_book.append(fair)
+            per_book_implied.append(
+                {sel: decimal_to_implied(state[book_id][sel].price_decimal) for sel in selections}
+            )
             books_used.append(book_id)
             snapshot_ids.extend(
                 snapshot_id
@@ -187,8 +195,13 @@ def consensus_fair_probabilities(
     # solo para absorber el error de coma flotante.
     averaged = {sel: sum(book[sel] for book in per_book) / len(per_book) for sel in selections}
     total = sum(averaged.values())
+    implied = {
+        sel: sum(book[sel] for book in per_book_implied) / len(per_book_implied)
+        for sel in selections
+    }
     return ConsensusResult(
         fair_probabilities={sel: p / total for sel, p in averaged.items()},
+        implied_probabilities=implied,
         per_book=tuple(zip(books_used, per_book, strict=True)),
         method=method,
         as_of=as_of,

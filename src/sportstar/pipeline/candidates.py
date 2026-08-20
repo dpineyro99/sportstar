@@ -105,6 +105,10 @@ def evaluate_selection(
         market_fair_prob=fair_prob,
         reference_decimal=reference_decimal,
         best_decimal=best.price_decimal,
+        # La implícita CON vig del consenso sharp. Sin pasarla explícitamente
+        # saldría de `reference_decimal`, que es `1/fair_prob` — es decir, la
+        # propia fair redicha, un campo que no aportaría nada.
+        market_implied_prob=consensus.implied_probabilities.get(selection_id),
     )
 
     age = line_age_seconds(best, as_of)

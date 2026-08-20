@@ -406,3 +406,69 @@ Un hallazgo que sigue apareciendo **no se duplica**: conserva su fila y su
 primera pregunta útil ante un problema. Los que dejan de aparecer se marcan
 resueltos automáticamente; sin eso el panel se llena de ruido histórico y deja de
 mirarse.
+
+---
+
+## Phase 2a — API HTTP
+
+**Estado:** completada. 489 tests, 94% de cobertura del paquete.
+
+`python -m sportstar.cli serve` levanta la API en el puerto 8000, con
+documentación interactiva en `/docs`.
+
+| Endpoint | Qué devuelve |
+|---|---|
+| `GET /v1/recommendations` | apuestas recomendadas, ordenadas por confianza |
+| `GET /v1/recommendations/{id}` | detalle con sus razones |
+| `GET /v1/candidates` | **todos** los candidates, pasaran o no los filtros |
+| `GET /v1/performance` | rendimiento, siempre con tamaño de muestra |
+| `GET /v1/models` | registro de modelos |
+| `GET /v1/health/data` | estado de los pipelines por severidad |
+| `GET /v1/health` | liveness, sin tocar la base |
+
+### Bug encontrado al exponer los datos
+
+**`market_implied_probability` devolvía la fair probability redicha.**
+
+El pipeline calcula el precio de referencia como `reference_decimal = 1/fair_prob`
+—correcto, porque un consenso no tiene un precio único—, y `evaluate()` derivaba
+la implícita de ese decimal. El resultado: `1/(1/fair) = fair`. El campo existía,
+tenía nombre distinto, y contenía exactamente el mismo número.
+
+No rompía nada visible: simplemente un cliente que quisiera mostrar el vig del
+mercado sharp habría obtenido siempre cero, y nadie lo habría cuestionado porque
+el número *parecía* razonable.
+
+Corregido añadiendo `implied_probabilities` a `ConsensusResult` —el promedio de
+las implícitas CON vig de los books de referencia— y pasándolo explícitamente.
+Ahora su diferencia con la fair es el margen real que carga el mercado sharp en
+ese lado. `evaluate()` acepta el parámetro como opcional: con un solo book de
+referencia sí existe un precio con vig del que derivarla.
+
+### Decisiones de contrato
+
+**La API es de solo lectura.** Un test lo verifica recorriendo las rutas: solo
+`GET`. Las recomendaciones las produce el pipeline, no una petición HTTP, y
+mantenerla de lectura impide que un cliente altere el histórico de decisiones —
+que debe ser inmutable para poder auditarlo.
+
+**Ninguna métrica viaja sin su tamaño de muestra.** `PerformanceOut` incluye
+`n_bets`, `n_candidates`, `metrics_are_interpretable` y una nota que dice
+explícitamente qué se puede leer con esa muestra. Con 90 apuestas el ROI es
+varianza con formato de porcentaje, y presentarlo desnudo es la forma más rápida
+de convencerse de que algo funciona sin evidencia.
+
+**Las tres probabilidades viajan en campos separados**, igual que en el esquema.
+Fusionarlas en el transporte reintroduciría por la API el error que la base
+evita.
+
+**Las probabilidades son fracciones, no porcentajes.** El formateo es decisión de
+presentación; mezclar unidades en el transporte es cómo aparecen los errores de
+factor 100.
+
+**Límite duro de paginación (200).** El consumidor principal es una PWA en un
+móvil con mala conexión, no un script en un servidor.
+
+**`total_edge` se recalcula al serializar** en vez de leerse de una columna:
+derivarla evita que un cambio en el pipeline deje un campo desincronizado sin que
+nadie lo note.

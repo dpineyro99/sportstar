@@ -236,3 +236,36 @@ class TestLineAge:
     def test_measures_staleness_in_seconds(self) -> None:
         point = PricePoint(HOME, REC, 2.0, T0)
         assert line_age_seconds(point, T0 + timedelta(minutes=10)) == pytest.approx(600.0)
+
+
+class TestImpliedVsFair:
+    """La implícita del consenso no puede ser la fair redicha.
+
+    Si se deriva `market_implied_prob` de `1/fair_prob`, el campo devuelve la
+    propia fair y no aporta nada. La implícita real es el promedio de las
+    implícitas CON vig de los books de referencia, y su diferencia con la fair es
+    el margen que carga el mercado sharp en ese lado.
+    """
+
+    def test_implied_is_strictly_above_fair(self) -> None:
+        points = two_way(SHARP_A, 1.91, 1.95) + two_way(SHARP_B, 1.88, 1.98)
+        result = consensus_fair_probabilities(points, SELECTIONS, {SHARP_A, SHARP_B}, as_of=T0)
+        assert result is not None
+        for selection in SELECTIONS:
+            assert result.implied_probabilities[selection] > result.fair_probabilities[selection]
+
+    def test_implied_probabilities_sum_to_the_overround(self) -> None:
+        points = two_way(SHARP_A, 1.91, 1.95)
+        result = consensus_fair_probabilities(points, SELECTIONS, {SHARP_A}, as_of=T0)
+        assert result is not None
+        assert sum(result.implied_probabilities.values()) == pytest.approx(
+            decimal_to_implied(1.91) + decimal_to_implied(1.95), abs=1e-12
+        )
+        assert sum(result.fair_probabilities.values()) == pytest.approx(1.0, abs=1e-12)
+
+    def test_the_gap_is_the_sharp_vig(self) -> None:
+        points = two_way(SHARP_A, 1.91, 1.95)
+        result = consensus_fair_probabilities(points, SELECTIONS, {SHARP_A}, as_of=T0)
+        assert result is not None
+        overround = sum(result.implied_probabilities.values())
+        assert overround - 1.0 == pytest.approx(0.0362, abs=1e-3)

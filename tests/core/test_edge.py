@@ -191,3 +191,26 @@ class TestTotalEdge:
         model_prob = fair  # el modelo ES el mercado
         assert edge(model_prob, fair) == pytest.approx(0.0, abs=1e-12)
         assert total_edge(model_prob, 2.10) > 0.02
+
+
+class TestImpliedProbabilityOverride:
+    def test_defaults_to_the_reference_price_when_not_given(self) -> None:
+        # Con un solo book de referencia sí existe un precio con vig del que
+        # derivarla, y por eso el parámetro es opcional.
+        result = evaluate(model_prob=0.58, market_fair_prob=0.55, reference_decimal=1.9)
+        assert result.market_implied_prob == pytest.approx(1 / 1.9, abs=1e-12)
+
+    def test_explicit_value_wins(self) -> None:
+        """Con un consenso hay que pasarla: no existe un precio único con vig.
+
+        Derivarla de `reference_decimal` —que es `1/fair_prob`— devolvería la
+        propia fair redicha, un campo que no aportaría nada.
+        """
+        result = evaluate(
+            model_prob=0.58,
+            market_fair_prob=0.55,
+            reference_decimal=1 / 0.55,
+            market_implied_prob=0.57,
+        )
+        assert result.market_implied_prob == 0.57
+        assert result.market_implied_prob != result.market_fair_prob

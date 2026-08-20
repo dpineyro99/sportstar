@@ -63,7 +63,7 @@ Se parte en dos sub-fases para no mezclar "¿funciona el pipeline?" con
 - ✅ Persistencia del pipeline: candidates, recommendations, reasons y linaje completo.
 - ⏳ Job de captura de closing line, **slate completo**.
 - ✅ Data Health: ocho checks sobre la base, con panel persistido y salida por CLI.
-- ⏳ API mínima.
+- ✅ API mínima: recommendations, candidates, performance, models y data health.
 
 Los normalizadores están escritos contra la documentación pública, no contra
 respuestas verificadas: la política de red del entorno de desarrollo deniega la

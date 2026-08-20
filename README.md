@@ -6,8 +6,9 @@ El objetivo no es predecir partidos, es **encontrar dónde se equivoca el mercad
 estimar probabilidades calibradas, compararlas contra la probabilidad justa
 (sin vig) del mercado y detectar expected value real.
 
-**Estado:** Phase 2a — pipeline completo funcionando con el mercado como modelo.
-Proveedores escritos, pendientes de verificar contra respuestas reales.
+**Estado:** Phase 2a — pipeline, persistencia, Data Health y API funcionando con
+el mercado como modelo. Proveedores escritos, pendientes de verificar contra
+respuestas reales.
 
 ## Puesta en marcha
 
@@ -20,6 +21,8 @@ python -m sportstar.cli init     # aplica migraciones
 python -m sportstar.cli seed     # puebla el catálogo (idempotente)
 python -m sportstar.cli status
 python -m sportstar.cli demo     # pipeline completo con precios sintéticos
+python -m sportstar.cli health   # checks de calidad de datos
+python -m sportstar.cli serve    # API en http://localhost:8000/docs
 
 pytest -q
 ```
