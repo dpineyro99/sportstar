@@ -19,6 +19,7 @@ causa clásica de eventos duplicados.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from ..providers.mlb_stats_api import PROVIDER_KEY
@@ -80,6 +81,7 @@ def _normalize_game(game: dict[str, Any], path: str) -> NormalizedEvent:
         provider_event_id=str(require_key(game, "gamePk", path=path)),
         sport_key="mlb",
         start_time=parse_iso8601(require_str(game, "gameDate", path=path), path=f"{path}.gameDate"),
+        official_date=_official_date(game, path),
         home_team_raw=require_str(home_team, "name", path=f"{home_path}.team"),
         away_team_raw=require_str(away_team, "name", path=f"{away_path}.team"),
         status=STATUS_MAP.get(abstract) if isinstance(abstract, str) else None,
@@ -94,6 +96,28 @@ def _normalize_game(game: dict[str, Any], path: str) -> NormalizedEvent:
         # un solo evento y se pierde uno de los dos partidos.
         game_number=_optional_int(game.get("gameNumber")) or 1,
     )
+
+
+def _official_date(game: dict[str, Any], path: str) -> date:
+    """Jornada a la que pertenece el partido.
+
+    **No es la fecha UTC de `gameDate`.** Medido sobre un slate real: 2 de 9
+    partidos empezaban a las 00:05 y 00:10 UTC del día siguiente y su
+    `officialDate` era el día anterior. Derivar la fecha del timestamp habría
+    archivado el 22% de los partidos de esa noche en el día equivocado, partiendo
+    cada jornada en dos y descolocando el emparejamiento con el proveedor de
+    odds, que sí razona por jornada.
+
+    Si el proveedor dejara de mandarlo se cae a la fecha UTC, que es incorrecta
+    para los nocturnos pero mejor que no tener evento.
+    """
+    raw = game.get("officialDate")
+    if isinstance(raw, str):
+        try:
+            return date.fromisoformat(raw)
+        except ValueError as exc:
+            raise ShapeError(f"{path}.officialDate: fecha inválida: {raw!r}") from exc
+    return parse_iso8601(require_str(game, "gameDate", path=path), path=path).date()
 
 
 def _pitcher_name(side: dict[str, Any]) -> str | None:

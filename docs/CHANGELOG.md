@@ -472,3 +472,71 @@ móvil con mala conexión, no un script en un servidor.
 **`total_edge` se recalcula al serializar** en vez de leerse de una columna:
 derivarla evita que un cambio en el pipeline deje un campo desincronizado sin que
 nadie lo note.
+
+---
+
+## Phase 2a — Verificación del esquema de MLB Stats API
+
+**Estado:** normalizador de MLB **verificado contra datos reales**. El de odds
+sigue pendiente (falta red y API key).
+
+Captura del 2026-08-20, 9 partidos, pegada manualmente porque la política de red
+del entorno de desarrollo sigue denegando la salida a `statsapi.mlb.com`. El
+fixture sintético queda sustituido por la respuesta real.
+
+### Resultado de la verificación
+
+| Comprobación | Resultado |
+|---|---|
+| Eventos normalizados | 9 / 9, cero errores de forma |
+| Equipos resueltos contra el catálogo | 18 / 18, todos por nombre exacto |
+| Pitchers probables en partidos futuros | presentes en los tres |
+| Marcadores en partidos terminados | presentes en los seis |
+| IDs de equipo del proveedor | presentes en los nueve |
+
+El normalizador acertó el esquema. Los `STATUS_MAP`, las rutas de `teams.home.
+team.name`, `probablePitcher.fullName` y `venue.name` coincidían con la
+documentación.
+
+### El bug que solo aparece con datos reales: `officialDate`
+
+**2 de los 9 partidos (22%) tenían `officialDate` distinto de la fecha UTC de
+`gameDate`.**
+
+```
+822861   start=2026-08-21T00:05Z   officialDate=2026-08-20
+824153   start=2026-08-21T00:10Z   officialDate=2026-08-20
+```
+
+Un partido de noche que empieza pasada la medianoche UTC pertenece a la jornada
+del día anterior. El normalizador ignoraba `officialDate` por completo, así que
+`Event.event_date` se habría derivado del timestamp y **el 22% de los partidos de
+cada noche se habría archivado en el día equivocado**.
+
+Consecuencias que habría tenido:
+
+- Una consulta "partidos de hoy" habría devuelto media jornada, con la otra mitad
+  colgando del día siguiente.
+- El emparejamiento con The Odds API —que razona por jornada— habría fallado
+  justo en los partidos nocturnos, que son la mayoría del slate en horario
+  americano.
+- La constraint de unicidad de eventos incluye `event_date`, así que un doblete
+  que cruzara medianoche habría quedado con fechas distintas.
+
+Ninguna de esas cosas lanza una excepción. Se habrían manifestado como un slate
+más corto de lo debido, que es el modo de fallo silencioso contra el que existe
+todo el módulo de Data Health.
+
+Corregido añadiendo `official_date` a `NormalizedEvent`, tomándolo del proveedor
+y cayendo a la fecha UTC solo si faltara.
+
+**Este es el argumento entero a favor de verificar esquemas contra respuestas
+reales en vez de contra documentación.** El campo estaba en la documentación; lo
+que no estaba era que importara. Solo mirando un slate real se ve que dos
+partidos cruzan medianoche y que el proveedor los sigue contando en la jornada
+anterior.
+
+### Pendiente
+
+`the_odds_api_odds.json` sigue siendo sintético. Verificarlo requiere abrir la
+red a `api.the-odds-api.com` y una `SPORTSTAR_ODDS_API_KEY`.

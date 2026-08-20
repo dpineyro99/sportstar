@@ -57,9 +57,10 @@ Se parte en dos sub-fases para no mezclar "¿funciona el pipeline?" con
 - ✅ Agregación de odds: consenso, mejor precio ejecutable, apertura, cierre, movimiento.
 - ✅ Pipeline: consensus no-vig → candidates → filtros → confidence → stake.
 - ✅ Instrumentación de jobs (`JobReport`) con la regla `matched == 0` ⇒ FAILED.
-- 🟡 Providers HTTP (The Odds API v4, MLB Stats API) y sus normalizadores:
-  escritos y testeados contra fixtures, **pendientes de verificar contra
-  respuestas reales**.
+- ✅ Provider y normalizador de MLB Stats API: **verificados contra una captura
+  real** (9/9 eventos, 18/18 equipos resueltos).
+- 🟡 Provider y normalizador de The Odds API: escritos y testeados contra
+  fixtures, pendientes de verificar. Requieren red y API key.
 - ✅ Persistencia del pipeline: candidates, recommendations, reasons y linaje completo.
 - ⏳ Job de captura de closing line, **slate completo**.
 - ✅ Data Health: ocho checks sobre la base, con panel persistido y salida por CLI.

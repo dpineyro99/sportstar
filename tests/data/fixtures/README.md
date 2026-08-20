@@ -3,9 +3,13 @@
 Estos ficheros son la **especificación ejecutable** del formato que esperamos de
 cada API externa.
 
-Los que hay ahora están escritos según la documentación pública, **no capturados
-de las APIs reales**: la política de red del entorno donde se desarrollaron
-deniega la salida a `statsapi.mlb.com` y `api.the-odds-api.com`.
+| Fixture | Origen |
+|---|---|
+| `mlb_stats_api_schedule.json` | **captura real** del 2026-08-20, 9 partidos |
+| `the_odds_api_odds.json` | escrito según documentación, sin verificar |
+
+El de odds sigue sin verificar: la política de red del entorno de desarrollo
+deniega la salida a `api.the-odds-api.com`, y hace falta una API key.
 
 ## Sustituirlos por capturas reales
 
