@@ -151,3 +151,99 @@ class TestSecurity:
         patch_urlopen(monkeypatch, [FakeResponse("{}")])
         with pytest.raises(HttpError, match="solo se permiten URLs https"):
             client().get("http://example.com/api")
+
+
+class TestErrorDiagnostics:
+    """El cuerpo del error del proveedor se conserva y se expone.
+
+    "HTTP 401: Unauthorized" convierte un diagnóstico de diez segundos en media
+    hora de conjeturas. El proveedor ya dice exactamente qué pasó; tirar ese texto
+    es desperdiciar la única información útil que manda.
+    """
+
+    INVALID_KEY_BODY = (
+        '{"message":"API key is not valid. Get an API key at https://the-odds-api.com",'
+        '"error_code":"INVALID_KEY",'
+        '"details_url":"https://the-odds-api.com/liveapi/guides/v4/api-error-codes.html"}'
+    )
+
+    def error_with_body(self, code: int, body: str) -> urllib.error.HTTPError:
+        return urllib.error.HTTPError(
+            "https://x/", code, "Unauthorized", {}, io.BytesIO(body.encode())
+        )  # type: ignore[arg-type]
+
+    def test_surfaces_the_provider_message_instead_of_the_status_phrase(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Respuesta real de The Odds API ante una key inválida."""
+        patch_urlopen(monkeypatch, [self.error_with_body(401, self.INVALID_KEY_BODY)])
+        with pytest.raises(HttpError) as exc:
+            client().get("https://example.com/api")
+        assert "API key is not valid" in str(exc.value)
+        assert exc.value.provider_error_code == "INVALID_KEY"
+
+    def test_error_code_distinguishes_causes(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Una key mal escrita y quedarse sin cuota son problemas distintos.
+
+        Solo uno de los dos se arregla esperando a mañana, así que el pipeline
+        necesita poder distinguirlos sin leer prosa.
+        """
+        body = '{"message":"Usage quota has been reached","error_code":"OUT_OF_USAGE_CREDITS"}'
+        patch_urlopen(monkeypatch, [self.error_with_body(401, body)])
+        with pytest.raises(HttpError) as exc:
+            client().get("https://example.com/api")
+        assert exc.value.provider_error_code == "OUT_OF_USAGE_CREDITS"
+
+    def test_non_json_body_is_truncated_not_dropped(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        patch_urlopen(monkeypatch, [self.error_with_body(500, "<html>Gateway error</html>")])
+        with pytest.raises(HttpError) as exc:
+            client(retries=1).get("https://example.com/api")
+        assert exc.value.status is None or "Gateway" in (exc.value.provider_message or "")
+
+    def test_an_unreadable_body_does_not_mask_the_original_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Perder el error de origen por una excepción secundaria al diagnosticar
+        # sería absurdo.
+        broken = urllib.error.HTTPError("https://x/", 401, "Unauthorized", {}, None)  # type: ignore[arg-type]
+        patch_urlopen(monkeypatch, [broken])
+        with pytest.raises(HttpError) as exc:
+            client().get("https://example.com/api")
+        assert exc.value.status == 401
+
+
+class TestKeyRedaction:
+    """La API key viaja en la query string y los errores acaban en logs.
+
+    Un mensaje de error se escribe en `job_runs.error_summary`, en el log del
+    worker y en pantalla. Si la key va dentro, se filtra por tres sitios a la vez.
+    """
+
+    def test_redacts_the_key_in_error_messages(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        patch_urlopen(monkeypatch, [http_error(401)])
+        with pytest.raises(HttpError) as exc:
+            client().get("https://example.com/api", params={"apiKey": "secreto123"})
+        assert "secreto123" not in str(exc.value)
+        assert "secreto123" not in exc.value.url
+
+    def test_redacts_after_exhausting_retries(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        patch_urlopen(monkeypatch, [http_error(503)])
+        with pytest.raises(HttpError) as exc:
+            client(retries=2).get("https://example.com/api", params={"apiKey": "secreto123"})
+        assert "secreto123" not in str(exc.value)
+
+    @pytest.mark.parametrize("param", ["apiKey", "api_key", "key", "APIKEY"])
+    def test_redacts_common_key_parameter_names(
+        self, monkeypatch: pytest.MonkeyPatch, param: str
+    ) -> None:
+        patch_urlopen(monkeypatch, [http_error(401)])
+        with pytest.raises(HttpError) as exc:
+            client().get("https://example.com/api", params={param: "secreto123"})
+        assert "secreto123" not in str(exc.value)
+
+    def test_leaves_other_parameters_visible(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Redactar de más haría el mensaje inútil para diagnosticar.
+        patch_urlopen(monkeypatch, [http_error(401)])
+        with pytest.raises(HttpError) as exc:
+            client().get("https://example.com/api", params={"apiKey": "x", "regions": "us"})
+        assert "regions=us" in str(exc.value)

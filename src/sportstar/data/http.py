@@ -13,6 +13,7 @@ solo gasta cuota — y en The Odds API la cuota es dinero.
 from __future__ import annotations
 
 import json
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -28,12 +29,60 @@ USER_AGENT = "sportstar/0.1 (+https://github.com/dpineyro99/sportstar)"
 
 
 class HttpError(RuntimeError):
-    """Fallo de red o respuesta no exitosa tras agotar los reintentos."""
+    """Fallo de red o respuesta no exitosa tras agotar los reintentos.
 
-    def __init__(self, message: str, *, status: int | None = None, url: str = "") -> None:
+    Conserva el **cuerpo** de la respuesta de error, no solo el código. Los
+    proveedores explican en el cuerpo qué pasó exactamente, y perder ese texto
+    convierte un diagnóstico de diez segundos en media hora de conjeturas:
+
+        HTTP 401: Unauthorized
+
+    frente a lo que de verdad manda The Odds API:
+
+        {"message": "API key is not valid. Get an API key at ...",
+         "error_code": "INVALID_KEY"}
+    """
+
+    def __init__(
+        self, message: str, *, status: int | None = None, url: str = "", body: str = ""
+    ) -> None:
         super().__init__(message)
         self.status = status
         self.url = url
+        self.body = body
+
+    @property
+    def provider_message(self) -> str | None:
+        """El campo `message` del cuerpo, si el proveedor manda JSON."""
+        if not self.body:
+            return None
+        try:
+            payload = json.loads(self.body)
+        except json.JSONDecodeError:
+            return self.body[:200]
+        if isinstance(payload, dict):
+            for key in ("message", "error", "detail"):
+                value = payload.get(key)
+                if isinstance(value, str):
+                    return value
+        return None
+
+    @property
+    def provider_error_code(self) -> str | None:
+        """Código de error del proveedor, útil para distinguir causas.
+
+        The Odds API usa `INVALID_KEY`, `OUT_OF_USAGE_CREDITS`,
+        `UNKNOWN_SPORT`... Distinguirlas importa: una es un typo y otra es que se
+        acabó la cuota, y solo una se arregla volviendo a intentarlo mañana.
+        """
+        if not self.body:
+            return None
+        try:
+            payload = json.loads(self.body)
+        except json.JSONDecodeError:
+            return None
+        code = payload.get("error_code") if isinstance(payload, dict) else None
+        return code if isinstance(code, str) else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,13 +163,23 @@ class HttpClient:
                     )
             except urllib.error.HTTPError as exc:
                 last_error = exc
+                body = _read_error_body(exc)
                 if exc.code not in RETRYABLE_STATUS:
                     # 401, 403, 404, 422: reintentar no lo arregla y gasta cuota.
-                    raise HttpError(
-                        f"HTTP {exc.code} en {full_url}: {exc.reason}",
+                    error = HttpError(
+                        f"HTTP {exc.code} en {_redact(full_url)}: {exc.reason}",
                         status=exc.code,
-                        url=full_url,
-                    ) from exc
+                        url=_redact(full_url),
+                        body=body,
+                    )
+                    if error.provider_message:
+                        error = HttpError(
+                            f"HTTP {exc.code}: {error.provider_message}",
+                            status=exc.code,
+                            url=_redact(full_url),
+                            body=body,
+                        )
+                    raise error from exc
             except (urllib.error.URLError, TimeoutError, OSError) as exc:
                 last_error = exc
 
@@ -128,5 +187,27 @@ class HttpClient:
                 self.sleep(self.backoff_base ** (attempt - 1))
 
         raise HttpError(
-            f"agotados {self.retries} intentos contra {full_url}: {last_error}", url=full_url
+            f"agotados {self.retries} intentos contra {_redact(full_url)}: {last_error}",
+            url=_redact(full_url),
         )
+
+
+def _read_error_body(exc: urllib.error.HTTPError) -> str:
+    """Lee el cuerpo del error. Nunca propaga un fallo de lectura.
+
+    Si el cuerpo no se puede leer, el error original sigue siendo lo importante:
+    perderlo por una excepción secundaria al diagnosticar sería absurdo.
+    """
+    try:
+        return exc.read().decode("utf-8", errors="replace")[:2000]
+    except Exception:
+        return ""
+
+
+def _redact(url: str) -> str:
+    """Oculta la API key de la URL.
+
+    Los mensajes de error acaban en logs, en `job_runs.error_summary` y en la
+    pantalla. Una key que viaja en la query string no puede filtrarse por ahí.
+    """
+    return re.sub(r"([?&](?:apiKey|api_key|key)=)[^&]*", r"\1***", url, flags=re.IGNORECASE)

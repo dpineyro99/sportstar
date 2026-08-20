@@ -67,8 +67,13 @@ def capture_odds(fixture_dir: Path, api_key: str) -> int:
         sports = provider.fetch_sports()
     except HttpError as exc:
         print(f"  ERROR: {exc}")
-        if exc.status == 401:
-            print(f"  La key de {ODDS_API_KEY_ENV} fue rechazada.")
+        # El código del proveedor distingue causas que se arreglan de formas muy
+        # distintas: una es un typo, otra es esperar a que renueve la cuota.
+        if exc.provider_error_code == "INVALID_KEY":
+            print(f"  La key de {ODDS_API_KEY_ENV} fue rechazada por el proveedor.")
+            print("  Revisa que sea la key literal, sin espacios ni comillas.")
+        elif exc.provider_error_code == "OUT_OF_USAGE_CREDITS":
+            print("  Cuota agotada. No es un problema de configuración: renueva o espera.")
         elif exc.status is None:
             print("  Sin respuesta del host. Suele ser la política de red del entorno.")
         return 1
