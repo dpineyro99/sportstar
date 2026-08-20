@@ -86,6 +86,11 @@ def executable_book_ids(session: Session) -> set[int]:
     return set(session.scalars(select(Sportsbook.id).where(Sportsbook.is_executable)))
 
 
+def operator_groups(session: Session) -> dict[int, str]:
+    """Operador de cada book, para deduplicar marcas de la misma casa."""
+    return {row.id: row.operator_group for row in session.scalars(select(Sportsbook))}
+
+
 def book_names(session: Session) -> dict[int, str]:
     """Nombres por id, para las explicaciones de las recomendaciones."""
     return {row.id: row.name for row in session.scalars(select(Sportsbook))}

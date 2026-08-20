@@ -37,8 +37,8 @@ CAPTURED = T0 - timedelta(seconds=45)
 # (book key, cuota local, cuota visitante). Los sharp coinciden; DraftKings paga
 # de más por el local — el edge estructural que el pipeline debe encontrar.
 PRICES = [
-    ("pinnacle", 1.92, 1.98),
-    ("circa", 1.93, 1.96),
+    ("betonlineag", 1.92, 1.98),
+    ("betus", 1.93, 1.96),
     ("draftkings", 2.15, 1.75),
     ("fanduel", 2.05, 1.80),
 ]
@@ -163,7 +163,7 @@ class TestLoader:
         self, session: Session, market: dict
     ) -> None:
         # Cuando cambie a qué books tienes acceso, cambia una fila, no el código.
-        assert market["books"]["pinnacle"].id in reference_book_ids(session)
+        assert market["books"]["betonlineag"].id in reference_book_ids(session)
         assert market["books"]["draftkings"].id in executable_book_ids(session)
         assert not reference_book_ids(session) & executable_book_ids(session)
 

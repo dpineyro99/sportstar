@@ -70,20 +70,43 @@ MLB_TEAMS: list[tuple[str, str, str, str, str]] = [
     ("SFG", "San Francisco Giants", "SF", "NL", "West"),
 ]
 
-# (key, nombre, tipo, is_reference, is_executable)
-SPORTSBOOKS: list[tuple[str, str, BookType, bool, bool]] = [
-    # Referencia: definen la probabilidad justa. No se apuesta necesariamente aquí.
-    ("pinnacle", "Pinnacle", BookType.SHARP, True, False),
-    ("circa", "Circa Sports", BookType.SHARP, True, False),
-    ("betonline", "BetOnline", BookType.SHARP, True, False),
-    # Ejecutables: donde se consigue el precio. D5 debe ajustar esta lista.
-    ("draftkings", "DraftKings", BookType.RECREATIONAL, False, True),
-    ("fanduel", "FanDuel", BookType.RECREATIONAL, False, True),
-    ("betmgm", "BetMGM", BookType.RECREATIONAL, False, True),
-    ("caesars", "Caesars", BookType.RECREATIONAL, False, True),
-    ("espnbet", "ESPN BET", BookType.RECREATIONAL, False, True),
-    ("bet365", "bet365", BookType.RECREATIONAL, False, True),
-    ("fanatics", "Fanatics Sportsbook", BookType.RECREATIONAL, False, True),
+# (key, nombre, tipo, is_reference, is_executable, operator_group)
+#
+# Las claves son las que **realmente** devuelve The Odds API con `regions=us`,
+# verificadas contra una respuesta real del 2026-08-20. Antes de esa verificación
+# el catálogo apuntaba a `pinnacle`, `circa` y `betonline`: ninguno de los tres
+# aparece en ese feed, así que el consenso se habría quedado vacío y el pipeline
+# habría producido cero candidates desde el primer día. (`betonline` además ni
+# siquiera es la clave correcta; es `betonlineag`.)
+#
+# La clasificación referencia/ejecutable sale del vig medio medido sobre 15
+# mercados reales, no de reputación:
+#
+#     betonlineag  2.40%   <- referencia
+#     lowvig       2.40%   <- misma casa que betonlineag
+#     betus        2.73%   <- referencia
+#     fanduel      3.63%
+#     draftkings   3.97%
+#     mybookieag   4.00%
+#     betrivers    4.19%
+#     bovada       4.45%
+#     betmgm       4.67%
+#
+# `is_executable` sigue siendo provisional: depende de dónde tenga cuenta el
+# operador y de su jurisdicción. Es la parte de D5 que solo el usuario puede
+# cerrar. Marcar como ejecutable un book inaccesible produce edge que no existe.
+SPORTSBOOKS: list[tuple[str, str, BookType, bool, bool, str]] = [
+    # Referencia: definen la probabilidad justa. Los de menor vig del feed.
+    ("betonlineag", "BetOnline.ag", BookType.SHARP, True, False, "betonline"),
+    ("lowvig", "LowVig.ag", BookType.SHARP, False, False, "betonline"),
+    ("betus", "BetUS", BookType.SHARP, True, False, "betus"),
+    # Ejecutables: donde se consigue el precio. D5 debe confirmar cuáles.
+    ("draftkings", "DraftKings", BookType.RECREATIONAL, False, True, "draftkings"),
+    ("fanduel", "FanDuel", BookType.RECREATIONAL, False, True, "fanduel"),
+    ("betmgm", "BetMGM", BookType.RECREATIONAL, False, True, "betmgm"),
+    ("betrivers", "BetRivers", BookType.RECREATIONAL, False, True, "rush_street"),
+    ("bovada", "Bovada", BookType.RECREATIONAL, False, True, "bovada"),
+    ("mybookieag", "MyBookie.ag", BookType.RECREATIONAL, False, True, "mybookie"),
 ]
 
 
@@ -126,7 +149,7 @@ def seed_catalog(session: Session) -> dict[str, int]:
             created["teams"] += 1
 
     existing_books = {b.key for b in session.query(Sportsbook).all()}
-    for key, name, book_type, is_reference, is_executable in SPORTSBOOKS:
+    for key, name, book_type, is_reference, is_executable, operator in SPORTSBOOKS:
         if key not in existing_books:
             session.add(
                 Sportsbook(
@@ -135,6 +158,7 @@ def seed_catalog(session: Session) -> dict[str, int]:
                     book_type=book_type,
                     is_reference=is_reference,
                     is_executable=is_executable,
+                    operator_group=operator,
                 )
             )
             created["sportsbooks"] += 1

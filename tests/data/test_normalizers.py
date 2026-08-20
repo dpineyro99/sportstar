@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -22,7 +23,7 @@ from sportstar.data.normalizers import ShapeError, normalize_odds, normalize_sch
 from sportstar.data.normalizers.odds_api import parse_iso8601
 
 FIXTURES = Path(__file__).parent / "fixtures"
-KNOWN_BOOKS = {"pinnacle", "draftkings", "fanduel", "circa", "betmgm"}
+KNOWN_BOOKS = {"betonlineag", "betus", "draftkings", "fanduel", "betmgm"}
 
 
 def load(name: str) -> object:
@@ -30,37 +31,39 @@ def load(name: str) -> object:
 
 
 class TestOddsApi:
+    """Contra la captura real de The Odds API del 2026-08-20 (15 eventos)."""
+
     def test_extracts_every_event(self) -> None:
         result = normalize_odds(load("the_odds_api_odds"), sport_key="mlb")
-        assert len(result.events) == 2
+        assert len(result.events) == 15
         assert result.errors == []
+
+    def test_extracts_every_price(self) -> None:
+        result = normalize_odds(load("the_odds_api_odds"), sport_key="mlb")
+        assert len(result.prices) == 224
 
     def test_event_fields_are_normalized(self) -> None:
         result = normalize_odds(load("the_odds_api_odds"), sport_key="mlb")
         event = result.events[0]
-        assert event.provider_event_id == "e912304de2b2ce35b473ce2ecd3d1502"
-        assert event.home_team_raw == "New York Yankees"
-        assert event.away_team_raw == "Boston Red Sox"
-        assert event.start_time == datetime(2026, 8, 19, 23, 5, tzinfo=UTC)
+        assert event.provider_event_id == "4641a1b30b5bae3cfb30564156dc2003"
+        assert event.home_team_raw == "Baltimore Orioles"
+        assert event.away_team_raw == "New York Yankees"
+        assert event.start_time == datetime(2026, 8, 20, 22, 36, tzinfo=UTC)
         assert event.sport_key == "mlb"  # clave interna, no la del proveedor
 
-    def test_moneyline_prices_are_extracted(self) -> None:
+    def test_moneyline_prices_carry_no_line(self) -> None:
         result = normalize_odds(load("the_odds_api_odds"), sport_key="mlb")
-        moneyline = [p for p in result.prices if p.market_type == "moneyline"]
-        pinnacle = [p for p in moneyline if p.book_key == "pinnacle"]
-        assert len(pinnacle) == 2
-        assert {p.price_american for p in pinnacle} == {-120.0, 108.0}
-        assert all(p.line is None for p in pinnacle)
+        assert {p.market_type for p in result.prices} == {"moneyline"}
+        assert all(p.line is None for p in result.prices)
 
-    def test_totals_carry_the_line(self) -> None:
-        result = normalize_odds(load("the_odds_api_odds"), sport_key="mlb")
-        totals = [p for p in result.prices if p.market_type == "total"]
-        assert {p.side_raw for p in totals} == {"Over", "Under"}
-        assert all(p.line == 8.5 for p in totals)
+    def test_each_event_has_two_sides_per_book(self) -> None:
+        # Sin los dos lados no se puede quitar el vig, así que un feed que
+        # entregara uno solo dejaría el mercado sin fair probability.
+        from collections import Counter
 
-    def test_market_keys_map_to_the_internal_taxonomy(self) -> None:
         result = normalize_odds(load("the_odds_api_odds"), sport_key="mlb")
-        assert {p.market_type for p in result.prices} == {"moneyline", "total"}
+        per_book = Counter((p.provider_event_id, p.book_key) for p in result.prices)
+        assert set(per_book.values()) == {2}
 
     def test_unknown_books_are_recorded_not_silently_dropped(self) -> None:
         """Un book nuevo en el feed es información, no ruido.
@@ -68,26 +71,68 @@ class TestOddsApi:
         Puede ser un sharp que deberíamos estar usando como referencia, y
         enterarse tres meses después es tarde.
         """
-        result = normalize_odds(
-            load("the_odds_api_odds"), sport_key="mlb", allowed_book_keys=KNOWN_BOOKS
-        )
-        assert result.skipped_books == {"unknown_book_xyz"}
-        assert all(p.book_key in KNOWN_BOOKS for p in result.prices)
+        known = {"draftkings", "fanduel"}
+        result = normalize_odds(load("the_odds_api_odds"), sport_key="mlb", allowed_book_keys=known)
+        assert "bovada" in result.skipped_books
+        assert all(p.book_key in known for p in result.prices)
 
-    def test_an_event_without_prices_is_not_an_error(self) -> None:
-        # Normal antes de que los books publiquen. El problema sería que NINGÚN
-        # evento trajera precios, y eso lo detecta la regla matched==0.
+    def test_provider_timestamps_are_per_book(self) -> None:
+        # Cada casa actualiza cuando quiere: la frescura hay que medirla por
+        # book, no por evento.
         result = normalize_odds(load("the_odds_api_odds"), sport_key="mlb")
-        dodgers = next(e for e in result.events if e.home_team_raw == "Los Angeles Dodgers")
-        assert not [p for p in result.prices if p.provider_event_id == dodgers.provider_event_id]
-        assert result.errors == []
+        updates = {p.last_update for p in result.prices if p.last_update}
+        assert len(updates) > 1
 
     def test_does_not_resolve_teams(self) -> None:
-        # Un normalizador no empareja. Lleva el texto crudo y `resolution/` decide,
-        # que es quien sabe encolar lo que no resuelve.
+        # Un normalizador no empareja. Lleva el texto crudo y `resolution/`
+        # decide, que es quien sabe encolar lo que no resuelve.
         result = normalize_odds(load("the_odds_api_odds"), sport_key="mlb")
         assert isinstance(result.events[0].home_team_raw, str)
         assert not hasattr(result.events[0], "home_team_id")
+
+
+class TestRealBookCoverage:
+    """Qué casas trae de verdad `regions=us`.
+
+    El catálogo original apuntaba a Pinnacle, Circa y `betonline`. Ninguna de las
+    tres aparece en este feed —y `betonline` ni siquiera es la clave correcta—
+    así que el consenso se habría quedado vacío y el pipeline habría producido
+    cero candidates desde el primer día, sin lanzar un solo error.
+    """
+
+    EXPECTED: ClassVar[set[str]] = {
+        "betmgm",
+        "betonlineag",
+        "betrivers",
+        "betus",
+        "bovada",
+        "draftkings",
+        "fanduel",
+        "lowvig",
+        "mybookieag",
+    }
+
+    def test_feed_contains_the_expected_books(self) -> None:
+        result = normalize_odds(load("the_odds_api_odds"), sport_key="mlb")
+        assert {p.book_key for p in result.prices} == self.EXPECTED
+
+    def test_pinnacle_is_not_available_in_the_us_region(self) -> None:
+        result = normalize_odds(load("the_odds_api_odds"), sport_key="mlb")
+        assert "pinnacle" not in {p.book_key for p in result.prices}
+
+    def test_every_seeded_reference_book_exists_in_the_feed(self) -> None:
+        """Regresión sobre el fallo original.
+
+        Un book de referencia sembrado que no aparece en el feed deja el
+        consenso vacío en silencio.
+        """
+        from sportstar.seeds.catalog import SPORTSBOOKS
+
+        result = normalize_odds(load("the_odds_api_odds"), sport_key="mlb")
+        available = {p.book_key for p in result.prices}
+        referencia = {k for k, _, _, is_ref, _, _ in SPORTSBOOKS if is_ref}
+        assert referencia
+        assert referencia <= available
 
 
 class TestOddsApiDiagnostics:
@@ -401,3 +446,32 @@ class TestAgainstRealCapture:
     def test_provider_team_ids_are_captured(self) -> None:
         result = normalize_schedule(load("mlb_stats_api_schedule"))
         assert all(e.provider_home_team_id and e.provider_away_team_id for e in result.events)
+
+
+class TestScoresOnlyWhenStarted:
+    """MLB manda `score: 0` en partidos que aún no han empezado.
+
+    Guardar ese 0 haría un partido sin jugar indistinguible de un 0-0 terminado.
+    La liquidación de apuestas depende exactamente de esa distinción, así que el
+    fallo no sería cosmético: liquidaría partidos que no se han jugado.
+    """
+
+    def test_scheduled_games_carry_no_score(self) -> None:
+        result = normalize_schedule(load("mlb_stats_api_schedule"))
+        upcoming = [e for e in result.events if e.status == "scheduled"]
+        assert upcoming
+        assert all(e.home_score is None and e.away_score is None for e in upcoming)
+
+    def test_finished_games_keep_their_score(self) -> None:
+        result = normalize_schedule(load("mlb_stats_api_schedule"))
+        finals = [e for e in result.events if e.status == "final"]
+        assert len(finals) == 6
+        assert all(e.home_score is not None for e in finals)
+
+    def test_a_real_nil_nil_final_is_preserved(self) -> None:
+        # El caso que hace importante la distinción: 2-0 con un cero legítimo.
+        result = normalize_schedule(load("mlb_stats_api_schedule"))
+        shutout = next(e for e in result.events if e.provider_event_id == "824589")
+        assert shutout.status == "final"
+        assert shutout.home_score == 0
+        assert shutout.away_score == 2

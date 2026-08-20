@@ -7,6 +7,7 @@ demuestra numéricamente por qué el orden de las operaciones importa.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import ClassVar
 
 import pytest
 
@@ -269,3 +270,108 @@ class TestImpliedVsFair:
         assert result is not None
         overround = sum(result.implied_probabilities.values())
         assert overround - 1.0 == pytest.approx(0.0362, abs=1e-3)
+
+
+class TestOperatorDeduplication:
+    """Dos marcas del mismo operador no son un consenso de dos.
+
+    Medido sobre datos reales: LowVig.ag y BetOnline.ag publicaron el mismo
+    precio en 26 de 28 mercados. Promediarlas es una opinión contada dos veces, y
+    el daño es triple: infla `book_count`, hunde la dispersión a cero y hace
+    creer que los sharp coinciden cuando solo hay uno opinando.
+
+    Ninguno de los tres efectos salta a la vista, que es lo que los hace
+    peligrosos.
+    """
+
+    SAME_OPERATOR: ClassVar[dict[int, str]] = {SHARP_A: "casa_x", SHARP_B: "casa_x"}
+    DISTINCT: ClassVar[dict[int, str]] = {SHARP_A: "casa_x", SHARP_B: "casa_y"}
+
+    def two_books(self) -> list[PricePoint]:
+        return two_way(SHARP_A, 1.91, 1.95) + two_way(SHARP_B, 1.85, 2.02)
+
+    def test_counts_operators_not_brands(self) -> None:
+        result = consensus_fair_probabilities(
+            self.two_books(),
+            SELECTIONS,
+            {SHARP_A, SHARP_B},
+            as_of=T0,
+            operator_groups=self.SAME_OPERATOR,
+        )
+        assert result is not None
+        assert result.book_count == 1
+
+    def test_distinct_operators_both_count(self) -> None:
+        result = consensus_fair_probabilities(
+            self.two_books(),
+            SELECTIONS,
+            {SHARP_A, SHARP_B},
+            as_of=T0,
+            operator_groups=self.DISTINCT,
+        )
+        assert result is not None
+        assert result.book_count == 2
+
+    def test_deduplication_changes_the_fair_probability(self) -> None:
+        # No es solo cosmética: el promedio deja de incluir el duplicado.
+        deduped = consensus_fair_probabilities(
+            self.two_books(),
+            SELECTIONS,
+            {SHARP_A, SHARP_B},
+            as_of=T0,
+            operator_groups=self.SAME_OPERATOR,
+        )
+        both = consensus_fair_probabilities(
+            self.two_books(),
+            SELECTIONS,
+            {SHARP_A, SHARP_B},
+            as_of=T0,
+            operator_groups=self.DISTINCT,
+        )
+        assert deduped is not None and both is not None
+        assert deduped.fair_probabilities[HOME] != pytest.approx(
+            both.fair_probabilities[HOME], abs=1e-9
+        )
+
+    def test_duplicated_brands_would_report_zero_dispersion(self) -> None:
+        """El síntoma más engañoso del duplicado.
+
+        Dos marcas de la misma casa dan precios idénticos, así que la dispersión
+        sale 0 — el sistema leería "los sharp están de acuerdo" cuando en
+        realidad solo hay uno.
+        """
+        identical = two_way(SHARP_A, 1.91, 1.95) + two_way(SHARP_B, 1.91, 1.95)
+        naive = consensus_fair_probabilities(identical, SELECTIONS, {SHARP_A, SHARP_B}, as_of=T0)
+        assert naive is not None
+        assert naive.book_count == 2  # parecen dos opiniones
+        assert naive.dispersion(HOME) == 0.0  # y parecen coincidir
+
+        deduped = consensus_fair_probabilities(
+            identical,
+            SELECTIONS,
+            {SHARP_A, SHARP_B},
+            as_of=T0,
+            operator_groups=self.SAME_OPERATOR,
+        )
+        assert deduped is not None
+        assert deduped.book_count == 1  # la verdad: una sola opinión
+
+    def test_keeps_the_lowest_book_id_for_determinism(self) -> None:
+        # El backtest debe ser reproducible: cuál de las marcas sobrevive no
+        # puede depender del orden en que llegaron las filas.
+        forward = consensus_fair_probabilities(
+            self.two_books(),
+            SELECTIONS,
+            {SHARP_A, SHARP_B},
+            as_of=T0,
+            operator_groups=self.SAME_OPERATOR,
+        )
+        backward = consensus_fair_probabilities(
+            list(reversed(self.two_books())),
+            SELECTIONS,
+            {SHARP_A, SHARP_B},
+            as_of=T0,
+            operator_groups=self.SAME_OPERATOR,
+        )
+        assert forward is not None and backward is not None
+        assert forward.books_used == backward.books_used == (SHARP_A,)

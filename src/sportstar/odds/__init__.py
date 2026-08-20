@@ -17,6 +17,7 @@ from .loader import (
     executable_book_ids,
     load_price_points,
     load_selection_ids,
+    operator_groups,
     reference_book_ids,
 )
 
@@ -35,5 +36,6 @@ __all__ = [
     "load_selection_ids",
     "market_state",
     "opening_points",
+    "operator_groups",
     "reference_book_ids",
 ]

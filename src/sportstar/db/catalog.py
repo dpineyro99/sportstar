@@ -124,6 +124,13 @@ class Sportsbook(Base, TimestampMixin):
     is_reference: Mapped[bool] = mapped_column(Boolean, default=False)
     is_executable: Mapped[bool] = mapped_column(Boolean, default=False)
     region: Mapped[str | None] = mapped_column(String(32))
+    # Operador detrás de la marca. Dos marcas del mismo operador publican el
+    # mismo precio, así que promediarlas no es un consenso de dos: es una
+    # opinión contada dos veces, con dispersión cero y confianza inflada.
+    #
+    # Medido sobre datos reales: LowVig.ag y BetOnline.ag coincidieron en 26 de
+    # 28 precios (93%). Son la misma casa.
+    operator_group: Mapped[str] = mapped_column(String(48), index=True)
 
 
 class RawPayload(Base):

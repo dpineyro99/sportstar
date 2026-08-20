@@ -540,3 +540,98 @@ anterior.
 
 `the_odds_api_odds.json` sigue siendo sintético. Verificarlo requiere abrir la
 red a `api.the-odds-api.com` y una `SPORTSTAR_ODDS_API_KEY`.
+
+---
+
+## Phase 2a — Verificación con datos reales de mercado
+
+**Estado:** Phase 2a **cerrada**. Ambos normalizadores verificados contra
+capturas reales. 531 tests, 94% de cobertura.
+
+Captura del 2026-08-20: 15 eventos MLB, 224 precios, 9 casas. Pegada manualmente
+porque la red del entorno sigue cerrada.
+
+### El fallo que habría dejado el sistema mudo desde el primer día
+
+El catálogo sembraba como books de referencia `pinnacle`, `circa` y `betonline`.
+**Ninguno de los tres aparece en el feed de `regions=us`.** Y `betonline` ni
+siquiera es la clave correcta: el proveedor la llama `betonlineag`.
+
+Sin books de referencia, `consensus_fair_probabilities` devuelve `None`, no hay
+fair probability, no hay candidates. El pipeline entero habría producido cero
+recomendaciones sin lanzar una sola excepción.
+
+Este es el modo de fallo exacto contra el que existe el módulo de Data Health, y
+lo habría atrapado — pero solo después de una jornada perdida.
+
+### D5 resuelto con evidencia: vig medido, no reputación
+
+| Book | vig medio | mercados |
+|---|---|---|
+| betonlineag | **2.40%** | 14 |
+| lowvig | **2.40%** | 14 |
+| betus | **2.73%** | 10 |
+| fanduel | 3.63% | 15 |
+| draftkings | 3.97% | 14 |
+| mybookieag | 4.00% | 14 |
+| betrivers | 4.19% | 3 |
+| bovada | 4.45% | 15 |
+| betmgm | 4.67% | 13 |
+
+Referencia: `betonlineag` y `betus`. Ejecutables: el resto, **provisional hasta
+que el operador confirme dónde tiene cuenta**.
+
+### Dos marcas del mismo operador no son un consenso de dos
+
+`lowvig` y `betonlineag` publicaron el **mismo precio en 26 de 28 mercados
+(93%)**. Es la misma casa: LowVig.ag es la marca de bajo margen de BetOnline.
+
+Promediarlas hace tres daños a la vez, ninguno visible:
+
+1. Infla `book_count`, que es lo que mira el gate de mínimo de referencias.
+2. Hunde la dispersión a **cero**, señal de "los sharp coinciden".
+3. Convierte una opinión en dos, con la confianza que eso arrastra.
+
+Corregido con `Sportsbook.operator_group` y deduplicación por operador en el
+consenso. Ante varias marcas de la misma casa se conserva la de id menor, para
+que el backtest sea reproducible.
+
+### Otros dos hallazgos de los datos reales
+
+**Marcadores en partidos sin empezar.** MLB manda `score: 0` también en partidos
+programados. Guardarlo haría un partido sin jugar indistinguible de un 0-0
+terminado — y la liquidación de apuestas depende justo de esa distinción. Ahora
+el marcador solo se conserva si el partido ha empezado.
+
+**Los relojes de los proveedores no coinciden.** El mismo partido:
+
+```
+MLB Stats API   2026-08-20T22:35:00Z
+The Odds API    2026-08-20T22:36:00Z
+```
+
+Un minuto. Emparejar por timestamp exacto habría duplicado cada evento. La
+ingesta empareja por equipos más una ventana de ±6h.
+
+### El resultado que importa: 28 candidates, 0 recomendaciones
+
+Con el pipeline completo sobre el mercado real:
+
+```
+mejor ventaja total:  +0.44%   (WSH @ TEX, +168 en DraftKings)
+umbral de los gates:  +2.00%
+recomendaciones:      0
+```
+
+**Y eso es la respuesta correcta.** Si `market_consensus_v1` hubiera escupido
+cinco edges del +5% sobre un mercado real de MLB moneyline, lo correcto sería
+sospechar un bug, no celebrar. El riesgo R4 del audit decía exactamente esto: el
+mercado es eficiente y el line shopping puro entre estas casas no deja margen
+suficiente.
+
+Lo que el sistema demuestra hoy es que **mide bien**, no que gane. Son cosas
+distintas y la primera es requisito de la segunda.
+
+Consecuencia estratégica para Phase 2b y Phase 6: si el edge estructural en MLB
+moneyline es ~0 con estas casas, la ventaja tendrá que venir del modelo o de
+mercados menos eficientes. El sistema ya está listo para medir ambas cosas.

@@ -59,8 +59,10 @@ Se parte en dos sub-fases para no mezclar "¿funciona el pipeline?" con
 - ✅ Instrumentación de jobs (`JobReport`) con la regla `matched == 0` ⇒ FAILED.
 - ✅ Provider y normalizador de MLB Stats API: **verificados contra una captura
   real** (9/9 eventos, 18/18 equipos resueltos).
-- 🟡 Provider y normalizador de The Odds API: escritos y testeados contra
-  fixtures, pendientes de verificar. Requieren red y API key.
+- ✅ Provider y normalizador de The Odds API: **verificados contra una captura
+  real** (15 eventos, 224 precios, 9 casas).
+- ✅ Ingesta: calendario y odds a la base, con emparejamiento por equipos +
+  ventana temporal y cola de no resueltos.
 - ✅ Persistencia del pipeline: candidates, recommendations, reasons y linaje completo.
 - ⏳ Job de captura de closing line, **slate completo**.
 - ✅ Data Health: ocho checks sobre la base, con panel persistido y salida por CLI.

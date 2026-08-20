@@ -32,8 +32,8 @@ NOW = datetime(2026, 8, 19, 18, 0, tzinfo=UTC)
 CAPTURED = NOW - timedelta(seconds=45)
 
 PRICES = [
-    ("pinnacle", 1.92, 1.98),
-    ("circa", 1.93, 1.96),
+    ("betonlineag", 1.92, 1.98),
+    ("betus", 1.93, 1.96),
     ("draftkings", 2.15, 1.75),
     ("fanduel", 2.05, 1.80),
 ]

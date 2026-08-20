@@ -68,7 +68,7 @@ class TestSeeds:
         created = seed_catalog(session)
         assert created["sports"] == 6
         assert created["teams"] == 30  # MLB completo
-        assert created["sportsbooks"] == 10
+        assert created["sportsbooks"] == 9
 
     def test_is_idempotent(self, session: Session) -> None:
         seed_catalog(session)
@@ -141,7 +141,7 @@ class TestOddsAppendOnly:
     def _snapshot(self, session: Session, selection: Selection, price: float) -> OddsSnapshot:
         from sportstar.db.catalog import Sportsbook
 
-        book = session.query(Sportsbook).filter_by(key="pinnacle").one()
+        book = session.query(Sportsbook).filter_by(key="betonlineag").one()
         snap = OddsSnapshot(
             selection_id=selection.id,
             sportsbook_id=book.id,
@@ -307,7 +307,7 @@ class TestUtcTimestamps:
     ) -> None:
         from sportstar.db.catalog import Sportsbook
 
-        book = session.query(Sportsbook).filter_by(key="pinnacle").one()
+        book = session.query(Sportsbook).filter_by(key="betonlineag").one()
         session.add(
             OddsSnapshot(
                 selection_id=selection.id,
@@ -338,7 +338,7 @@ class TestUtcTimestamps:
         """
         from sportstar.db.catalog import Sportsbook
 
-        book = session.query(Sportsbook).filter_by(key="pinnacle").one()
+        book = session.query(Sportsbook).filter_by(key="betonlineag").one()
         session.add(
             OddsSnapshot(
                 selection_id=selection.id,
@@ -358,7 +358,7 @@ class TestUtcTimestamps:
 
         from sportstar.db.catalog import Sportsbook
 
-        book = session.query(Sportsbook).filter_by(key="pinnacle").one()
+        book = session.query(Sportsbook).filter_by(key="betonlineag").one()
         eastern = timezone(timedelta(hours=-4))
         session.add(
             OddsSnapshot(

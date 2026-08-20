@@ -155,6 +155,7 @@ def consensus_fair_probabilities(
     *,
     as_of: datetime,
     method: NoVigMethod = NoVigMethod.PROPORTIONAL,
+    operator_groups: dict[int, str] | None = None,
 ) -> ConsensusResult | None:
     """Consenso de books de referencia: quita el vig por book y luego promedia.
 
@@ -165,6 +166,16 @@ def consensus_fair_probabilities(
     Peso igual para todos los books de referencia. Ponderar por calidad de book es
     una pregunta de calibración de Phase 3 — inventar pesos ahora sería
     exactamente la fórmula arbitraria que el brief pide evitar.
+
+    `operator_groups` deduplica marcas del mismo operador. Dos marcas de la misma
+    casa publican el mismo precio: promediarlas no es un consenso de dos, es una
+    opinión contada dos veces. El daño es triple —infla `book_count`, hunde la
+    dispersión a cero y hace creer que los sharp coinciden cuando solo hay uno—
+    y ninguno de los tres efectos salta a la vista.
+
+    Medido sobre datos reales: LowVig.ag y BetOnline.ag coincidieron en 26 de 28
+    precios. Ante varias marcas del mismo operador se conserva la de id menor,
+    para que el resultado sea determinista y el backtest reproducible.
     """
     state = market_state(points, as_of)
     per_book: list[dict[int, float]] = []
@@ -172,9 +183,15 @@ def consensus_fair_probabilities(
     books_used: list[int] = []
     snapshot_ids: list[int] = []
 
+    seen_operators: set[str] = set()
     for book_id in sorted(state):
         if book_id not in reference_book_ids:
             continue
+        if operator_groups is not None:
+            operator = operator_groups.get(book_id, str(book_id))
+            if operator in seen_operators:
+                continue
+            seen_operators.add(operator)
         fair = book_fair_probabilities(state[book_id], selections, method)
         if fair is not None:
             per_book.append(fair)

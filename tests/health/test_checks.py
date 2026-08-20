@@ -52,7 +52,7 @@ def world(session: Session) -> dict:
     return {
         "league": session.query(League).filter_by(key="mlb").one(),
         "market": market,
-        "book": session.query(Sportsbook).filter_by(key="pinnacle").one(),
+        "book": session.query(Sportsbook).filter_by(key="betonlineag").one(),
         "teams": {t.key: t for t in session.query(Team).all()},
     }
 

@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: d51bead6814e
+Revision ID: efa08dd125a8
 Revises: 
-Create Date: 2026-08-20 21:23:00.492017
+Create Date: 2026-08-20 22:01:02.089314
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'd51bead6814e'
+revision: str = 'efa08dd125a8'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -119,10 +119,14 @@ def upgrade() -> None:
     sa.Column('is_reference', sa.Boolean(), nullable=False),
     sa.Column('is_executable', sa.Boolean(), nullable=False),
     sa.Column('region', sa.String(length=32), nullable=True),
+    sa.Column('operator_group', sa.String(length=48), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_sportsbooks')),
     sa.UniqueConstraint('key', name=op.f('uq_sportsbooks_key'))
     )
+    with op.batch_alter_table('sportsbooks', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_sportsbooks_operator_group'), ['operator_group'], unique=False)
+
     op.create_table('unmatched_entities',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('provider', sa.String(length=64), nullable=False),
@@ -717,6 +721,9 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_unmatched_entities_provider'))
 
     op.drop_table('unmatched_entities')
+    with op.batch_alter_table('sportsbooks', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_sportsbooks_operator_group'))
+
     op.drop_table('sportsbooks')
     op.drop_table('sports')
     with op.batch_alter_table('raw_payloads', schema=None) as batch_op:

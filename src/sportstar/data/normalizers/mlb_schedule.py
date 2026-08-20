@@ -85,8 +85,12 @@ def _normalize_game(game: dict[str, Any], path: str) -> NormalizedEvent:
         home_team_raw=require_str(home_team, "name", path=f"{home_path}.team"),
         away_team_raw=require_str(away_team, "name", path=f"{away_path}.team"),
         status=STATUS_MAP.get(abstract) if isinstance(abstract, str) else None,
-        home_score=_optional_int(home.get("score")),
-        away_score=_optional_int(away.get("score")),
+        # MLB manda `score: 0` también en partidos que no han empezado. Guardar
+        # ese 0 haría un partido sin jugar indistinguible de un 0-0 terminado, y
+        # la liquidación de apuestas depende justo de esa distinción. Solo se
+        # conserva el marcador cuando el partido ya ha empezado.
+        home_score=_score_if_started(home, abstract),
+        away_score=_score_if_started(away, abstract),
         venue_raw=venue.get("name") if isinstance(venue.get("name"), str) else None,
         home_probable_pitcher_raw=_pitcher_name(home),
         away_probable_pitcher_raw=_pitcher_name(away),
@@ -126,6 +130,13 @@ def _pitcher_name(side: dict[str, Any]) -> str | None:
         name = pitcher.get("fullName")
         if isinstance(name, str):
             return name
+    return None
+
+
+def _score_if_started(side: dict[str, Any], abstract: Any) -> int | None:
+    """Marcador solo si el partido ha empezado; `None` si sigue programado."""
+    if abstract in ("Live", "Final"):
+        return _optional_int(side.get("score"))
     return None
 
 
