@@ -14,6 +14,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
+from .backfill import run_backfill
 from .capture import run_capture
 from .db.catalog import League, Sport, Sportsbook, Team
 from .db.session import create_db_engine, create_session_factory, database_url, session_scope
@@ -104,6 +105,12 @@ def cmd_serve() -> int:
     return 0
 
 
+def cmd_backfill(args: argparse.Namespace) -> int:
+    from datetime import date
+
+    return run_backfill(date.fromisoformat(args.start), date.fromisoformat(args.end))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="sportstar", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -114,7 +121,13 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("capture", help="captura fixtures reales de los proveedores")
     sub.add_parser("health", help="checks de calidad de datos")
     sub.add_parser("serve", help="levanta la API HTTP")
+    backfill = sub.add_parser("backfill", help="descarga histórico de MLB a data/raw/")
+    backfill.add_argument("--start", required=True, help="fecha inicial (YYYY-MM-DD)")
+    backfill.add_argument("--end", required=True, help="fecha final (YYYY-MM-DD)")
     args = parser.parse_args(argv)
+
+    if args.command == "backfill":
+        return cmd_backfill(args)
 
     commands = {
         "init": cmd_init,

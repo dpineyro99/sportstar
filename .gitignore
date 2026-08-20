@@ -13,3 +13,6 @@ dist/
 *.db-wal
 *.db-shm
 .env
+# El histórico descargado se commitea a propósito: es como viajan los datos
+# desde una máquina con red hasta el entorno de desarrollo, que no la tiene.
+!data/raw/

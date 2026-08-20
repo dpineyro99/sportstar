@@ -635,3 +635,72 @@ distintas y la primera es requisito de la segunda.
 Consecuencia estratégica para Phase 2b y Phase 6: si el edge estructural en MLB
 moneyline es ~0 con estas casas, la ventaja tendrá que venir del modelo o de
 mercados menos eficientes. El sistema ya está listo para medir ambas cosas.
+
+---
+
+## Phase 2b — Cimientos de features
+
+**Estado:** contrato point-in-time y Elo listos. Faltan las features específicas
+de MLB, que necesitan histórico. 558 tests, 91% de cobertura.
+
+### Vía de datos que no depende de la red del entorno
+
+`python -m sportstar.cli backfill --start ... --end ...` descarga el histórico
+desde una máquina **con** red y lo deja en `data/raw/mlb/` como ficheros
+comprimidos que se commitean. El histórico viaja por git.
+
+Una temporada completa son **8 peticiones**, no 180: la MLB Stats API acepta
+rangos de fechas, así que se pide mes a mes. El comando es reanudable — salta lo
+ya descargado — porque una descarga interrumpida a mitad de temporada no puede
+obligar a empezar de cero.
+
+Los payloads se guardan íntegros, sin normalizar, por la misma razón que
+`raw_payloads`: cuando un normalizador tenga un bug se reprocesa todo sin volver
+a descargar.
+
+### El invariante que sostiene todo lo demás
+
+Una feature con `as_of = T` solo puede derivarse de hechos conocidos
+**estrictamente antes** de T.
+
+No es una buena práctica, es la condición para que el backtest signifique algo.
+El leakage no produce un error: produce resultados *mejores*. Un backtest
+contaminado sale precioso, convence, y no se reproduce en paper trading — y para
+cuando se nota, se han perdido meses.
+
+Por eso no se confía a la disciplina:
+
+- `FeatureVector` guarda su `as_of` y el hecho más reciente que consumió.
+- `assert_point_in_time` compara ambos y **lanza** si se cruzan.
+- El criterio es `observed_at`, no la fecha del hecho: un marcador corregido dos
+  días después no estaba disponible el día del partido, por mucho que su fecha
+  diga lo contrario.
+
+La igualdad también se rechaza. Un hecho observado en el instante del corte no
+estaba disponible *antes* de él, y en la práctica esa igualdad casi siempre
+delata un `as_of` derivado del propio dato que se pretende usar.
+
+### Elo reconstruido en cada corte
+
+`fit_through(games, as_of)` recorre los partidos ordenados por `observed_at` y se
+detiene antes del corte. **No hay un rating "actual" que consultar**: cada `as_of`
+produce su propio estado.
+
+Es más lento que mantener un rating global, y es la diferencia entre un backtest
+reproducible y uno que miente. La alternativa rápida es exactamente por donde se
+cuela el leakage: basta con que un partido se incorpore antes de tiempo para que
+todo deje de significar nada, y no hay forma de notarlo mirando el resultado.
+
+Parámetros y por qué:
+
+| Parámetro | Valor | Razón |
+|---|---|---|
+| K | 4.0 | En béisbol un partido suelto es casi todo ruido; una K alta hace que el rating lo persiga |
+| Ventaja local | 24 pts | ≈54% de victoria local entre iguales, el orden histórico en MLB |
+| Regresión entre temporadas | 0.30 | Las plantillas cambian; arrastrar el rating entero sobrestima la continuidad |
+
+El margen de victoria se ignora a propósito: una paliza dice poco más que una
+victoria ajustada, y premiarla es otra forma de perseguir ruido.
+
+Todos los valores se revisan contra datos en Phase 3. Hoy son convenciones
+explícitas, no resultados.

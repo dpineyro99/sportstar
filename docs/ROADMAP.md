@@ -81,10 +81,16 @@ modelo estadístico. Lo que mida aquí es edge estructural puro (`ARCHITECTURE.m
 
 ### 2b — Primer modelo estadístico
 
-- `FeatureBuilder` MLB v1: fuerza de equipo, forma reciente, starting pitcher
-  (FIP/xFIP), bullpen y su fatiga, splits de lateralidad, park factor, descanso,
-  home/away. Todo con `as_of`.
-- Modelos baseline: Elo con ajuste por pitcher + regresión logística.
+- ✅ Contrato point-in-time (`features/base.py`): `as_of`, `observed_at` y
+  `assert_point_in_time`, que lanza en vez de confiar.
+- ✅ Elo reconstruible en cada corte (`features/elo.py`).
+- ✅ `backfill`: histórico desde una máquina con red, por git.
+- ⏳ `FeatureBuilder` MLB v1: forma reciente, starting pitcher (FIP/xFIP),
+  bullpen y su fatiga, splits de lateralidad, park factor, descanso, home/away.
+- ⏳ Regresión logística sobre esas features.
+
+Las features específicas necesitan histórico: sin temporadas de partidos no hay
+forma de calcular forma reciente ni calidad de pitcher, ni de validar nada.
 
 **Criterios de salida**
 - **Cobertura de cierres ≥ 95% del slate.** Habilita toda la validación posterior; sin esto Phase 3 y 4 no tienen muestra. Es el criterio que más fácil se pasa por alto y el único irrecuperable.

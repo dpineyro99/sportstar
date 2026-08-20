@@ -46,6 +46,25 @@ class MlbStatsApiProvider:
             response, provider=self.provider_key, endpoint="/schedule", sport_key="mlb"
         )
 
+    def fetch_schedule_range(self, start: date, end: date) -> RawFetch:
+        """Calendario de un rango de fechas en **una sola petición**.
+
+        Es lo que hace viable el backfill: una temporada completa son ~2.430
+        partidos, y pedirlos día a día serían 180 peticiones. Por meses son seis.
+        """
+        response = self._client.get(
+            f"{BASE_URL}/schedule",
+            params={
+                "sportId": MLB_SPORT_ID,
+                "startDate": start.isoformat(),
+                "endDate": end.isoformat(),
+                "hydrate": SCHEDULE_HYDRATE,
+            },
+        )
+        return RawFetch.from_response(
+            response, provider=self.provider_key, endpoint="/schedule", sport_key="mlb"
+        )
+
     def fetch_teams(self) -> RawFetch:
         """Equipos de MLB. Se usa para sembrar `external_ids` y cerrar el
         emparejamiento por ID en vez de por nombre."""
