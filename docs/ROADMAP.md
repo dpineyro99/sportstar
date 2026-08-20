@@ -60,7 +60,7 @@ Se parte en dos sub-fases para no mezclar "¿funciona el pipeline?" con
 - 🟡 Providers HTTP (The Odds API v4, MLB Stats API) y sus normalizadores:
   escritos y testeados contra fixtures, **pendientes de verificar contra
   respuestas reales**.
-- ⏳ Persistencia del pipeline en las tablas.
+- ✅ Persistencia del pipeline: candidates, recommendations, reasons y linaje completo.
 - ⏳ Job de captura de closing line, **slate completo**.
 - ⏳ API mínima + Data Health.
 

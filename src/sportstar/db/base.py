@@ -1,17 +1,23 @@
 """Base declarativa y convenciones comunes.
 
-Todos los timestamps son **UTC**. SQLite no almacena zona horaria, así que la
-convención se sostiene por disciplina en la capa de aplicación: nunca se escribe
-un `datetime` naive que no sea UTC.
+Todos los timestamps son **UTC y con zona horaria**, garantizado por el tipo
+`UtcDateTime` en vez de por disciplina.
+
+Por qué hace falta un tipo propio: SQLite no almacena la zona horaria, así que
+`DateTime(timezone=True)` devuelve datetimes *naive* al leer. Compararlos con un
+`as_of` con zona lanza `TypeError`, y todo el pipeline point-in-time vive de esa
+comparación. Peor: en Postgres sí funcionaría, de modo que el comportamiento
+dependería del motor y el fallo aparecería solo al migrar.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, TypeAlias
 
-from sqlalchemy import DateTime, MetaData, func
+from sqlalchemy import DateTime, Dialect, MetaData, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.types import TypeDecorator
 
 # Columnas JSON. Los alias existen para que `mypy --strict` tenga genéricos
 # parametrizados sin sembrar `Any` suelto por todos los modelos.
@@ -30,17 +36,41 @@ NAMING_CONVENTION = {
 }
 
 
+class UtcDateTime(TypeDecorator[datetime]):
+    """`DateTime` que garantiza UTC con zona horaria en ambos sentidos.
+
+    Al escribir **rechaza** los datetimes naive en vez de asumir que ya son UTC.
+    Asumirlo es lo que produce desfases de horas que nadie detecta hasta que un
+    evento aparece capturado después de su propio inicio.
+    """
+
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(self, value: datetime | None, dialect: Dialect) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            raise ValueError(
+                f"timestamp sin zona horaria: {value!r}. Todo el sistema trabaja en UTC "
+                "con zona explícita; un naive aquí produce desfases silenciosos."
+            )
+        return value.astimezone(UTC)
+
+    def process_result_value(self, value: datetime | None, dialect: Dialect) -> datetime | None:
+        if value is None:
+            return None
+        # SQLite devuelve naive: el valor almacenado es UTC, así que se reetiqueta.
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
-
-
-def utc_timestamp() -> Mapped[datetime]:
-    return mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class TimestampMixin:
     """`created_at` gestionado por la base de datos."""
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        UtcDateTime, server_default=func.now(), nullable=False
     )

@@ -7,7 +7,6 @@ from datetime import date, datetime
 from sqlalchemy import (
     Boolean,
     Date,
-    DateTime,
     Enum,
     Float,
     ForeignKey,
@@ -18,7 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
-from .base import Base, JsonDict, JsonList, TimestampMixin
+from .base import Base, JsonDict, JsonList, TimestampMixin, UtcDateTime
 from .enums import BetOutcome, EntityType, JobStatus, Severity
 
 
@@ -37,8 +36,8 @@ class JobRun(Base):
     job_name: Mapped[str] = mapped_column(String(96), index=True)
     sport_key: Mapped[str | None] = mapped_column(String(32), index=True)
     run_id: Mapped[str] = mapped_column(String(64), index=True)
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime] = mapped_column(UtcDateTime, index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
     status: Mapped[JobStatus] = mapped_column(
         Enum(JobStatus, native_enum=False, length=12), index=True
     )
@@ -60,8 +59,8 @@ class DataHealthCheck(Base):
     entity_type: Mapped[str | None] = mapped_column(String(24))
     entity_id: Mapped[int | None] = mapped_column(Integer)
     message: Mapped[str] = mapped_column(String(1024))
-    detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    detected_at: Mapped[datetime] = mapped_column(UtcDateTime, index=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
 
 class UnmatchedEntity(Base):
@@ -78,8 +77,8 @@ class UnmatchedEntity(Base):
     entity_type: Mapped[EntityType] = mapped_column(Enum(EntityType, native_enum=False, length=16))
     raw_value: Mapped[str] = mapped_column(String(256), index=True)
     context: Mapped[JsonDict | None] = mapped_column(JSON)
-    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    first_seen_at: Mapped[datetime] = mapped_column(UtcDateTime)
+    last_seen_at: Mapped[datetime] = mapped_column(UtcDateTime)
     occurrences: Mapped[int] = mapped_column(Integer, default=1)
     resolved_to_id: Mapped[int | None] = mapped_column(Integer)
 
@@ -121,7 +120,7 @@ class BacktestBet(Base):
     backtest_id: Mapped[int] = mapped_column(ForeignKey("backtests.id"), index=True)
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id"))
     selection_id: Mapped[int] = mapped_column(ForeignKey("selections.id"))
-    as_of: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    as_of: Mapped[datetime] = mapped_column(UtcDateTime)
     model_prob: Mapped[float] = mapped_column(Float)
     fair_prob: Mapped[float] = mapped_column(Float)
     edge: Mapped[float] = mapped_column(Float)

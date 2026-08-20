@@ -292,3 +292,85 @@ class TestFeatureAsOf:
             )
         with pytest.raises(IntegrityError):
             session.flush()
+
+
+class TestUtcTimestamps:
+    """Todos los timestamps van y vuelven en UTC con zona horaria.
+
+    Sin esto, SQLite devuelve datetimes naive y compararlos con el `as_of` del
+    pipeline lanza TypeError. Peor: en Postgres funcionaría, así que el
+    comportamiento dependería del motor y el fallo solo aparecería al migrar.
+    """
+
+    def test_reading_back_yields_timezone_aware_utc(
+        self, session: Session, selection: Selection
+    ) -> None:
+        from sportstar.db.catalog import Sportsbook
+
+        book = session.query(Sportsbook).filter_by(key="pinnacle").one()
+        session.add(
+            OddsSnapshot(
+                selection_id=selection.id,
+                sportsbook_id=book.id,
+                price_american=-110,
+                price_decimal=1.909,
+                line=NO_LINE,
+                implied_prob=0.5238,
+                captured_at=T0,
+            )
+        )
+        session.commit()
+        session.expire_all()
+
+        loaded = session.query(OddsSnapshot).one()
+        assert loaded.captured_at.tzinfo is not None
+        assert loaded.captured_at == T0
+        # La comparación que el pipeline hace en cada evaluación.
+        assert loaded.captured_at <= datetime.now(UTC)
+
+    def test_writing_a_naive_timestamp_is_rejected(
+        self, session: Session, selection: Selection
+    ) -> None:
+        """Rechazar es mejor que asumir UTC.
+
+        Asumirlo produce desfases de horas que nadie detecta hasta que un evento
+        aparece capturado después de su propio inicio.
+        """
+        from sportstar.db.catalog import Sportsbook
+
+        book = session.query(Sportsbook).filter_by(key="pinnacle").one()
+        session.add(
+            OddsSnapshot(
+                selection_id=selection.id,
+                sportsbook_id=book.id,
+                price_american=-110,
+                price_decimal=1.909,
+                line=NO_LINE,
+                implied_prob=0.5238,
+                captured_at=datetime(2026, 8, 19, 18, 0),
+            )
+        )
+        with pytest.raises(Exception, match="sin zona horaria"):
+            session.flush()
+
+    def test_offsets_are_normalized_to_utc(self, session: Session, selection: Selection) -> None:
+        from datetime import timedelta, timezone
+
+        from sportstar.db.catalog import Sportsbook
+
+        book = session.query(Sportsbook).filter_by(key="pinnacle").one()
+        eastern = timezone(timedelta(hours=-4))
+        session.add(
+            OddsSnapshot(
+                selection_id=selection.id,
+                sportsbook_id=book.id,
+                price_american=-110,
+                price_decimal=1.909,
+                line=NO_LINE,
+                implied_prob=0.5238,
+                captured_at=datetime(2026, 8, 19, 14, 0, tzinfo=eastern),
+            )
+        )
+        session.commit()
+        session.expire_all()
+        assert session.query(OddsSnapshot).one().captured_at == T0

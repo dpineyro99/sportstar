@@ -12,7 +12,6 @@ from typing import Any
 
 from sqlalchemy import (
     Boolean,
-    DateTime,
     Enum,
     Float,
     ForeignKey,
@@ -24,7 +23,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, Mapper, mapped_column
 
-from .base import Base, TimestampMixin
+from .base import Base, TimestampMixin, UtcDateTime
 from .enums import MarketType, Period, Side, SubjectType
 
 
@@ -112,7 +111,7 @@ class OddsSnapshot(Base):
     line: Mapped[float] = mapped_column(Float, nullable=False, default=NO_LINE)
     implied_prob: Mapped[float] = mapped_column(Float)  # CON vig, tal cual viene
     is_available: Mapped[bool] = mapped_column(Boolean, default=True)
-    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    captured_at: Mapped[datetime] = mapped_column(UtcDateTime)
     run_id: Mapped[str | None] = mapped_column(String(64), index=True)
 
 

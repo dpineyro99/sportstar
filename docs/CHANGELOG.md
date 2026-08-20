@@ -257,3 +257,76 @@ pytest tests/data -q
 `capture` sobrescribe los fixtures con respuestas reales y los tests pasan a
 validarse contra ellas. Requiere salida de red a `statsapi.mlb.com` y
 `api.the-odds-api.com`.
+
+---
+
+## Phase 2a — Persistencia del pipeline
+
+**Estado:** completada. 421 tests, 95% de cobertura del paquete.
+
+Cierra el ciclo `odds_snapshots -> PricePoint -> pipeline -> candidates`, con
+linaje suficiente para reconstruir cualquier apuesta histórica.
+
+### Dos fallos de diseño que solo aparecen al intentar escribir
+
+**1. Una FK única no puede representar un consenso.**
+`Candidate.reference_odds_snapshot_id` era una clave ajena a un solo snapshot,
+pero la probabilidad justa sale del promedio de N books de referencia. Con una
+sola referencia el consenso es irreconstruible — y reconstruir cualquier apuesta
+histórica es requisito del sistema, no una comodidad.
+
+Sustituida por `reference_odds_snapshot_ids` (lista JSON) más
+`reference_book_count` y `reference_dispersion`. Ahora un candidate guarda los
+cuatro snapshots (2 books x 2 lados) que produjeron su fair probability, y un
+test verifica que se pueden recuperar y que todos pertenecen a books sharp.
+
+**2. SQLite devuelve timestamps sin zona horaria.**
+`DateTime(timezone=True)` no almacena la zona en SQLite, así que al leer vuelven
+*naive*. Compararlos con el `as_of` del pipeline lanza `TypeError`, y ese
+contraste está en el centro de todo el sistema point-in-time.
+
+Lo grave no es el error, es que **en Postgres habría funcionado**: el
+comportamiento dependía del motor y el fallo solo habría aparecido al migrar,
+con datos ya dentro.
+
+Corregido con un `TypeDecorator` propio, `UtcDateTime`, aplicado a todas las
+columnas de fecha. Al leer reetiqueta a UTC; al escribir **rechaza** los naive en
+vez de asumir que ya son UTC — asumirlo produce desfases de horas que nadie
+detecta hasta que un evento aparece capturado después de su propio inicio.
+
+Efecto colateral en las migraciones: autogenerate renderizaba
+`sportstar.db.base.UtcDateTime()` sin importarlo. Resuelto con un `render_item`
+en `migrations/env.py` que lo emite como `sa.DateTime(timezone=True)`. Además de
+arreglar el import, evita acoplar el histórico de migraciones a una clase de la
+aplicación que puede moverse o renombrarse y romper migraciones ya aplicadas.
+
+### Decisiones que conviene recordar
+
+**Se persiste todo candidate, pase o no los filtros.** Es lo que permite
+responder después "¿qué habría pasado con umbral 2%?" sin volver a simular, y lo
+que separa la evaluación del modelo (todos los candidates) de la del filtro (solo
+recomendaciones).
+
+**Persistir un precio sintético es un error explícito.** Si el mejor precio no
+trae `snapshot_id`, `persist_evaluation` lanza `PersistenceError` en vez de
+escribir `NULL`. Un candidate cuyo precio no se puede señalar en la tabla de odds
+no es reconstruible, y el `NULL` se descubriría meses después al auditar.
+
+**Una versión de modelo es inmutable.** `ensure_model_version` crea o devuelve,
+pero nunca actualiza: si cambia algo del modelo cambia la versión, o las
+predicciones antiguas quedarían atribuidas a algo que ya no es lo que las generó.
+
+**Las razones salen de la descomposición del edge, no de texto.** Para
+`market_consensus_v1` hay exactamente dos factores posibles porque son las dos
+únicas cosas que el modelo sabe. En la práctica solo se lista una: el edge de
+modelo es 0 y no supera el mínimo. "El mercado se equivoca" y "este book paga de
+más" son afirmaciones distintas con implicaciones distintas, y mezclarlas borra
+justo lo que hace falta para saber si el modelo aporta.
+
+**Una sola función de carga para producción y backtest.** `load_price_points`
+cambia solo en el `as_of`. Mantener dos caminos garantizaría que se
+desincronizasen y que el backtest dejara de describir lo que el sistema hace.
+
+**`correlation_group` agrupa por evento.** Aproximación burda pero conservadora
+en la dirección correcta: agrupar de más limita exposición, agrupar de menos la
+multiplica sin que nadie se entere. El portfolio engine de Phase 9 la refinará.

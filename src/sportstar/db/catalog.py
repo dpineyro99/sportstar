@@ -10,11 +10,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Enum, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
-from .base import Base, JsonDict, JsonValue, TimestampMixin
+from .base import Base, JsonDict, JsonValue, TimestampMixin, UtcDateTime
 from .enums import BookType, EntityType
 
 
@@ -142,7 +142,7 @@ class RawPayload(Base):
     endpoint: Mapped[str] = mapped_column(String(160))
     sport_key: Mapped[str | None] = mapped_column(String(32), index=True)
     payload: Mapped[JsonValue] = mapped_column(JSON)
-    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    requested_at: Mapped[datetime] = mapped_column(UtcDateTime)
+    observed_at: Mapped[datetime] = mapped_column(UtcDateTime, index=True)
     http_status: Mapped[int | None] = mapped_column(Integer)
     run_id: Mapped[str | None] = mapped_column(String(64), index=True)

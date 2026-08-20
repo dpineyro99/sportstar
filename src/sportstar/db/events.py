@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Date, Enum, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
-from .base import Base, JsonDict, TimestampMixin
+from .base import Base, JsonDict, TimestampMixin, UtcDateTime
 from .enums import EventStatus, ParticipantRole, ParticipantStatus
 
 
@@ -20,8 +20,8 @@ class Event(Base, TimestampMixin):
     league_id: Mapped[int] = mapped_column(ForeignKey("leagues.id"), index=True)
     season: Mapped[int] = mapped_column(Integer, index=True)
     event_date: Mapped[date] = mapped_column(Date, index=True)
-    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    actual_start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    start_time: Mapped[datetime] = mapped_column(UtcDateTime, index=True)
+    actual_start_time: Mapped[datetime | None] = mapped_column(UtcDateTime)
     home_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), index=True)
     away_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), index=True)
     venue_id: Mapped[int | None] = mapped_column(ForeignKey("venues.id"))
@@ -31,7 +31,7 @@ class Event(Base, TimestampMixin):
     home_score: Mapped[int | None] = mapped_column(Integer)
     away_score: Mapped[int | None] = mapped_column(Integer)
     weather: Mapped[JsonDict | None] = mapped_column(JSON)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
 
 class EventParticipant(Base, TimestampMixin):
@@ -56,7 +56,7 @@ class EventParticipant(Base, TimestampMixin):
     status: Mapped[ParticipantStatus] = mapped_column(
         Enum(ParticipantStatus, native_enum=False, length=16)
     )
-    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    observed_at: Mapped[datetime] = mapped_column(UtcDateTime, index=True)
 
 
 class Injury(Base, TimestampMixin):
@@ -67,5 +67,5 @@ class Injury(Base, TimestampMixin):
     team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), index=True)
     status: Mapped[str] = mapped_column(String(48))
     description: Mapped[str | None] = mapped_column(String(512))
-    reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    reported_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+    observed_at: Mapped[datetime] = mapped_column(UtcDateTime, index=True)

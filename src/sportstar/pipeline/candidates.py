@@ -22,6 +22,7 @@ from datetime import datetime
 
 from ..core.edge import EdgeBreakdown, evaluate
 from ..core.kelly import Stake, StakeConfig, recommend_stake
+from ..core.novig import NoVigMethod
 from ..filters.confidence import ConfidenceResult, compute_confidence
 from ..filters.gates import FilterResult, GateInput, evaluate_gates
 from ..models.base import ModelPrediction
@@ -34,6 +35,10 @@ class CandidateEvaluation:
 
     selection_id: int
     as_of: datetime
+    # Qué método produjo la fair probability. Se persiste porque cambiar de
+    # método cambia todos los edges, y sin saber cuál se usó no se pueden
+    # comparar candidates de épocas distintas.
+    novig_method: NoVigMethod
     breakdown: EdgeBreakdown
     prediction: ModelPrediction
     best_price: PricePoint
@@ -140,6 +145,7 @@ def evaluate_selection(
     return CandidateEvaluation(
         selection_id=selection_id,
         as_of=as_of,
+        novig_method=consensus.method,
         breakdown=breakdown,
         prediction=prediction,
         best_price=best,

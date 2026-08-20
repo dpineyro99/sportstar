@@ -12,7 +12,6 @@ from datetime import date, datetime
 from sqlalchemy import (
     Boolean,
     Date,
-    DateTime,
     Float,
     ForeignKey,
     Index,
@@ -22,7 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
-from .base import Base, JsonDict, JsonList, TimestampMixin
+from .base import Base, JsonDict, JsonList, TimestampMixin, UtcDateTime
 
 
 class FeatureSet(Base, TimestampMixin):
@@ -56,11 +55,11 @@ class EventFeature(Base):
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id"))
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
     feature_set_id: Mapped[int] = mapped_column(ForeignKey("feature_sets.id"))
-    as_of: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    as_of: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False)
     features: Mapped[JsonDict] = mapped_column(JSON)
     data_quality_score: Mapped[float] = mapped_column(Float, default=1.0)
     missing_features: Mapped[JsonList | None] = mapped_column(JSON)
-    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    computed_at: Mapped[datetime] = mapped_column(UtcDateTime)
 
 
 class ModelVersion(Base, TimestampMixin):
@@ -94,7 +93,7 @@ class ModelVersion(Base, TimestampMixin):
     metrics: Mapped[JsonDict | None] = mapped_column(JSON)
     artifact_path: Mapped[str | None] = mapped_column(String(512))
     artifact_hash: Mapped[str | None] = mapped_column(String(96))
-    trained_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    trained_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
 
 
@@ -124,4 +123,4 @@ class Prediction(Base, TimestampMixin):
     probability: Mapped[float] = mapped_column(Float)
     prob_lower: Mapped[float | None] = mapped_column(Float)
     prob_upper: Mapped[float | None] = mapped_column(Float)
-    as_of: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    as_of: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False)

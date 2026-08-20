@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 0a21e09fa69e
+Revision ID: e396ccd38ca0
 Revises: 
-Create Date: 2026-08-19 07:26:26.860668
+Create Date: 2026-08-20 02:20:52.919390
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '0a21e09fa69e'
+revision: str = 'e396ccd38ca0'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -460,10 +460,12 @@ def upgrade() -> None:
     sa.Column('event_id', sa.Integer(), nullable=False),
     sa.Column('selection_id', sa.Integer(), nullable=False),
     sa.Column('prediction_id', sa.Integer(), nullable=False),
-    sa.Column('reference_odds_snapshot_id', sa.Integer(), nullable=True),
+    sa.Column('reference_odds_snapshot_ids', sa.JSON(), nullable=False),
+    sa.Column('reference_book_count', sa.Integer(), nullable=False),
     sa.Column('market_implied_prob', sa.Float(), nullable=False),
     sa.Column('market_fair_prob', sa.Float(), nullable=False),
     sa.Column('novig_method', sa.String(length=16), nullable=False),
+    sa.Column('reference_dispersion', sa.Float(), nullable=True),
     sa.Column('best_odds_snapshot_id', sa.Integer(), nullable=True),
     sa.Column('best_sportsbook_id', sa.Integer(), nullable=True),
     sa.Column('best_price_american', sa.Float(), nullable=True),
@@ -487,7 +489,6 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['closing_odds_snapshot_id'], ['odds_snapshots.id'], name=op.f('fk_candidates_closing_odds_snapshot_id')),
     sa.ForeignKeyConstraint(['event_id'], ['events.id'], name=op.f('fk_candidates_event_id')),
     sa.ForeignKeyConstraint(['prediction_id'], ['predictions.id'], name=op.f('fk_candidates_prediction_id')),
-    sa.ForeignKeyConstraint(['reference_odds_snapshot_id'], ['odds_snapshots.id'], name=op.f('fk_candidates_reference_odds_snapshot_id')),
     sa.ForeignKeyConstraint(['selection_id'], ['selections.id'], name=op.f('fk_candidates_selection_id')),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_candidates'))
     )

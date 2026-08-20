@@ -29,7 +29,13 @@ from ..core.odds import decimal_to_implied
 
 @dataclass(frozen=True, slots=True)
 class PricePoint:
-    """Un precio observado. Espejo ligero de `OddsSnapshot`, sin la base."""
+    """Un precio observado. Espejo ligero de `OddsSnapshot`, sin la base.
+
+    `snapshot_id` es el puente con la persistencia: al cargar desde la base lleva
+    el id de la fila, y así el candidate puede referenciar exactamente qué
+    snapshots entraron en su consenso. En precios sintéticos (demo, tests) es
+    `None`, y persistir uno así es un error explícito, no un `NULL` silencioso.
+    """
 
     selection_id: int
     sportsbook_id: int
@@ -37,6 +43,7 @@ class PricePoint:
     captured_at: datetime
     line: float = 0.0
     is_available: bool = True
+    snapshot_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +60,9 @@ class ConsensusResult:
     per_book: tuple[tuple[int, dict[int, float]], ...]
     method: NoVigMethod
     as_of: datetime
+    # Snapshots que entraron en el promedio. Es lo que permite reconstruir el
+    # consenso exacto de una apuesta histórica meses después.
+    contributing_snapshot_ids: tuple[int, ...] = ()
 
     @property
     def books_used(self) -> tuple[int, ...]:
@@ -155,6 +165,7 @@ def consensus_fair_probabilities(
     state = market_state(points, as_of)
     per_book: list[dict[int, float]] = []
     books_used: list[int] = []
+    snapshot_ids: list[int] = []
 
     for book_id in sorted(state):
         if book_id not in reference_book_ids:
@@ -163,6 +174,11 @@ def consensus_fair_probabilities(
         if fair is not None:
             per_book.append(fair)
             books_used.append(book_id)
+            snapshot_ids.extend(
+                snapshot_id
+                for sel in selections
+                if (snapshot_id := state[book_id][sel].snapshot_id) is not None
+            )
 
     if not per_book:
         return None
@@ -176,6 +192,7 @@ def consensus_fair_probabilities(
         per_book=tuple(zip(books_used, per_book, strict=True)),
         method=method,
         as_of=as_of,
+        contributing_snapshot_ids=tuple(snapshot_ids),
     )
 
 
