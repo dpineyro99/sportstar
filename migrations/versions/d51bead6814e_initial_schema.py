@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: e396ccd38ca0
+Revision ID: d51bead6814e
 Revises: 
-Create Date: 2026-08-20 02:20:52.919390
+Create Date: 2026-08-20 21:23:00.492017
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'e396ccd38ca0'
+revision: str = 'd51bead6814e'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -267,6 +267,7 @@ def upgrade() -> None:
     sa.Column('league_id', sa.Integer(), nullable=False),
     sa.Column('season', sa.Integer(), nullable=False),
     sa.Column('event_date', sa.Date(), nullable=False),
+    sa.Column('game_number', sa.Integer(), nullable=False),
     sa.Column('start_time', sa.DateTime(timezone=True), nullable=False),
     sa.Column('actual_start_time', sa.DateTime(timezone=True), nullable=True),
     sa.Column('home_team_id', sa.Integer(), nullable=False),
@@ -283,7 +284,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['league_id'], ['leagues.id'], name=op.f('fk_events_league_id')),
     sa.ForeignKeyConstraint(['venue_id'], ['venues.id'], name=op.f('fk_events_venue_id')),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_events')),
-    sa.UniqueConstraint('league_id', 'event_date', 'home_team_id', 'away_team_id', name=op.f('uq_events_league_id_event_date_home_team_id_away_team_id'))
+    sa.UniqueConstraint('league_id', 'event_date', 'home_team_id', 'away_team_id', 'game_number', name=op.f('uq_events_league_id_event_date_home_team_id_away_team_id_game_number'))
     )
     with op.batch_alter_table('events', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_events_away_team_id'), ['away_team_id'], unique=False)

@@ -374,3 +374,66 @@ class TestUtcTimestamps:
         session.commit()
         session.expire_all()
         assert session.query(OddsSnapshot).one().captured_at == T0
+
+
+class TestDoubleheaders:
+    """Dos partidos el mismo día entre los mismos equipos.
+
+    Sin `game_number` en la clave, la constraint de unicidad describe exactamente
+    un doubleheader y prohíbe el segundo partido. El sync fallaría en cada doblete
+    de la temporada, y el síntoma —un partido que falta— es de los que tardan
+    semanas en notarse.
+    """
+
+    def _event(self, session: Session, game_number: int) -> Event:
+        from sportstar.db.catalog import League, Team
+
+        league = session.query(League).filter_by(key="mlb").one()
+        home = session.query(Team).filter_by(key="NYY").one()
+        away = session.query(Team).filter_by(key="BOS").one()
+        return Event(
+            league_id=league.id,
+            season=2026,
+            event_date=date(2026, 8, 19),
+            start_time=T0,
+            home_team_id=home.id,
+            away_team_id=away.id,
+            game_number=game_number,
+        )
+
+    def test_both_games_of_a_doubleheader_fit(self, session: Session) -> None:
+        seed_catalog(session)
+        session.flush()
+        session.add_all([self._event(session, 1), self._event(session, 2)])
+        session.flush()
+        assert session.query(Event).count() == 2
+
+    def test_the_same_game_twice_is_still_rejected(self, session: Session) -> None:
+        # Relajar la constraint no puede abrir la puerta a duplicados reales:
+        # un partido contado dos veces duplica sus apuestas y sesga las métricas.
+        seed_catalog(session)
+        session.flush()
+        session.add_all([self._event(session, 1), self._event(session, 1)])
+        with pytest.raises(IntegrityError):
+            session.flush()
+
+    def test_game_number_defaults_to_one(self, session: Session) -> None:
+        from sportstar.db.catalog import League, Team
+
+        seed_catalog(session)
+        session.flush()
+        league = session.query(League).filter_by(key="mlb").one()
+        home = session.query(Team).filter_by(key="NYY").one()
+        away = session.query(Team).filter_by(key="BOS").one()
+        session.add(
+            Event(
+                league_id=league.id,
+                season=2026,
+                event_date=date(2026, 8, 19),
+                start_time=T0,
+                home_team_id=home.id,
+                away_team_id=away.id,
+            )
+        )
+        session.flush()
+        assert session.query(Event).one().game_number == 1

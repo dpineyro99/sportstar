@@ -14,12 +14,19 @@ from .enums import EventStatus, ParticipantRole, ParticipantStatus
 
 class Event(Base, TimestampMixin):
     __tablename__ = "events"
-    __table_args__ = (UniqueConstraint("league_id", "event_date", "home_team_id", "away_team_id"),)
+    # `game_number` forma parte de la clave porque un doubleheader es
+    # literalmente "mismo día, mismos equipos, misma liga": sin él la constraint
+    # prohíbe el segundo partido, y el sync fallaría en cada doblete de la
+    # temporada. Es 1 para los partidos normales.
+    __table_args__ = (
+        UniqueConstraint("league_id", "event_date", "home_team_id", "away_team_id", "game_number"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     league_id: Mapped[int] = mapped_column(ForeignKey("leagues.id"), index=True)
     season: Mapped[int] = mapped_column(Integer, index=True)
     event_date: Mapped[date] = mapped_column(Date, index=True)
+    game_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     start_time: Mapped[datetime] = mapped_column(UtcDateTime, index=True)
     actual_start_time: Mapped[datetime | None] = mapped_column(UtcDateTime)
     home_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), index=True)

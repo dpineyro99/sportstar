@@ -330,3 +330,79 @@ desincronizasen y que el backtest dejara de describir lo que el sistema hace.
 **`correlation_group` agrupa por evento.** Aproximación burda pero conservadora
 en la dirección correcta: agrupar de más limita exposición, agrupar de menos la
 multiplica sin que nadie se entere. El portfolio engine de Phase 9 la refinará.
+
+---
+
+## Phase 2a — Data Health
+
+**Estado:** completada. 455 tests, 95% de cobertura del paquete.
+
+`python -m sportstar.cli health` ejecuta los checks, sincroniza el panel y
+devuelve código de salida 1 si hay algún CRITICAL — para que un problema de datos
+pueda romper un cron o un paso de CI, no solo pintarse en una pantalla que nadie
+mira.
+
+### Bug previo encontrado al construirlo: el esquema prohibía los dobletes
+
+`UNIQUE(league_id, event_date, home_team_id, away_team_id)` es la definición
+literal de un doubleheader: dos partidos, mismo día, mismos equipos, misma liga.
+El segundo no podía insertarse, así que el sync habría fallado en **cada doblete
+de la temporada**.
+
+Peor que el fallo es su síntoma: un partido que simplemente falta. No hay
+excepción que investigar, solo un slate más corto de lo que debería — de las
+cosas que tardan semanas en notarse y que mientras tanto sesgan cualquier métrica
+agregada.
+
+El normalizador ya extraía `gameNumber` y tenía test, pero `Event` no tenía dónde
+guardarlo. Corregido añadiendo `game_number` a la tabla y a la constraint. Un
+test verifica que caben los dos partidos del doblete y que un duplicado real
+sigue rechazándose.
+
+### Por qué existe este módulo
+
+El modo de fallo peligroso de este sistema no es el error, es **el silencio**. Un
+pipeline que sigue corriendo con datos de ayer no lanza excepciones: produce
+recomendaciones plausibles sobre precios que ya no existen, y el backtest
+posterior las valida encantado.
+
+### Los ocho checks y su severidad
+
+| Check | Severidad | Qué detecta |
+|---|---|---|
+| `closing_lines_missing` | CRITICAL | partido empezado sin precio previo al inicio |
+| `closing_coverage` | CRITICAL | cobertura de cierres por debajo del 95% |
+| `stale_odds` | CRITICAL | partido inminente cuyo precio más reciente es viejo |
+| `failed_job` | CRITICAL | jobs fallidos en 24h |
+| `impossible_probability` | CRITICAL | implied fuera de (0,1), decimal ≤ 1 |
+| `events_without_odds` | WARNING | partido en <6h sin ningún precio |
+| `unmatched_backlog` | WARNING | cola de entidades sin resolver creciendo |
+| `odds_after_start` | INFO | precios in-play (legítimos, nunca como pregame) |
+
+### Decisiones de severidad, que son la parte difícil
+
+**`closing_lines_missing` es CRITICAL aunque hoy no rompa nada.** Es el único
+fallo del sistema cuya ventana no vuelve: el precio de cierre de ayer se perdió
+ayer. Sin cierre no hay CLV, y sin CLV la validación pierde la muestra que hace
+viable evaluar un modelo en semanas en vez de en temporadas.
+
+**Solo los CRITICAL rompen la salud.** Un WARNING permanente que marcase el
+sistema como enfermo entrenaría a cualquiera a ignorar el indicador — que es
+exactamente cómo muere un sistema de alertas.
+
+**`odds_after_start` es INFO, no error.** El in-play es legítimo; el problema
+sería usarlo como pregame. Marcarlo como error sería el mismo fallo de
+calibración de alertas.
+
+**`stale_odds` es CRITICAL y `events_without_odds` es WARNING**, aunque suenen
+parecidos. No tener precios puede ser normal (los books aún no publicaron); tener
+precios que se quedaron congelados significa que el sync se paró, y eso no lo
+arregla ningún filtro aguas abajo.
+
+### Persistencia de hallazgos
+
+Un hallazgo que sigue apareciendo **no se duplica**: conserva su fila y su
+`detected_at`, lo que permite responder "¿desde cuándo?" — que suele ser la
+primera pregunta útil ante un problema. Los que dejan de aparecer se marcan
+resueltos automáticamente; sin eso el panel se llena de ruido histórico y deja de
+mirarse.

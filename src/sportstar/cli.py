@@ -18,6 +18,7 @@ from .capture import run_capture
 from .db.catalog import League, Sport, Sportsbook, Team
 from .db.session import create_db_engine, create_session_factory, database_url, session_scope
 from .demo import run_demo
+from .health import persist_report, run_checks
 from .seeds import seed_catalog
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -69,6 +70,25 @@ def cmd_status() -> int:
     return 0
 
 
+def cmd_health() -> int:
+    """Ejecuta los checks y sincroniza el panel.
+
+    Devuelve 1 si hay CRITICAL, para que sirva como paso de un cron o de CI: un
+    problema de datos debe poder romper un pipeline, no solo pintarse en una
+    pantalla que nadie mira.
+    """
+    engine = create_db_engine()
+    factory = create_session_factory(engine)
+    with session_scope(factory) as session:
+        report = run_checks(session)
+        created, resolved = persist_report(session, report)
+        print(report.render())
+        print(f"\n  nuevos: {created}   resueltos: {resolved}")
+        healthy = report.is_healthy
+    engine.dispose()
+    return 0 if healthy else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="sportstar", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -77,6 +97,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("status", help="resumen del contenido de la base")
     sub.add_parser("demo", help="ejecuta el pipeline con precios sintéticos")
     sub.add_parser("capture", help="captura fixtures reales de los proveedores")
+    sub.add_parser("health", help="checks de calidad de datos")
     args = parser.parse_args(argv)
 
     commands = {
@@ -85,6 +106,7 @@ def main(argv: list[str] | None = None) -> int:
         "status": cmd_status,
         "demo": run_demo,
         "capture": run_capture,
+        "health": cmd_health,
     }
     return commands[args.command]()
 
