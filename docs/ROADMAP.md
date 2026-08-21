@@ -85,6 +85,8 @@ modelo estadístico. Lo que mida aquí es edge estructural puro (`ARCHITECTURE.m
   `assert_point_in_time`, que lanza en vez de confiar.
 - ✅ Elo reconstruible en cada corte (`features/elo.py`).
 - ✅ `backfill`: histórico desde una máquina con red, por git.
+- ✅ **Temporada 2024 cargada y validada**: 2.574 partidos, 30 equipos, Elo
+  ordenando la liga de forma sensata (Dodgers arriba, White Sox abajo).
 - ⏳ `FeatureBuilder` MLB v1: forma reciente, starting pitcher (FIP/xFIP),
   bullpen y su fatiga, splits de lateralidad, park factor, descanso, home/away.
 - ⏳ Regresión logística sobre esas features.

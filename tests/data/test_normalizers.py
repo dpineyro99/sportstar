@@ -475,3 +475,120 @@ class TestScoresOnlyWhenStarted:
         assert shutout.status == "final"
         assert shutout.home_score == 0
         assert shutout.away_score == 2
+
+
+class TestPostponedAndCancelled:
+    """MLB marca los aplazados y cancelados como `abstractGameState: "Final"`.
+
+    El partido "terminó" en el sentido de que ya no va a jugarse, pero tratarlo
+    como terminado tiene tres consecuencias, ninguna cosmética:
+
+    1. Data Health los marcaría eternamente como partidos sin closing line.
+    2. La liquidación intentaría resolver apuestas de partidos que no se jugaron.
+       Un cancelado es VOID —se devuelve el dinero—, no una derrota.
+    3. Entrarían al histórico del modelo como partidos reales sin marcador.
+
+    Solo `detailedState` los distingue.
+    """
+
+    def game(self, abstract: str, detailed: str) -> dict:
+        return {
+            "dates": [
+                {
+                    "date": "2024-04-01",
+                    "games": [
+                        {
+                            "gamePk": 1,
+                            "gameDate": "2024-04-01T18:00:00Z",
+                            "officialDate": "2024-04-01",
+                            "gameType": "R",
+                            "status": {"abstractGameState": abstract, "detailedState": detailed},
+                            "teams": {
+                                "away": {"score": 0, "team": {"id": 1, "name": "A"}},
+                                "home": {"score": 0, "team": {"id": 2, "name": "B"}},
+                            },
+                        }
+                    ],
+                }
+            ]
+        }
+
+    @pytest.mark.parametrize(
+        ("detailed", "expected"),
+        [
+            ("Postponed", "postponed"),
+            ("Cancelled", "cancelled"),
+            ("Canceled", "cancelled"),
+            ("Suspended", "postponed"),
+            ("Postponed: Rain", "postponed"),
+        ],
+    )
+    def test_detailed_state_overrides_the_abstract_one(self, detailed: str, expected: str) -> None:
+        event = normalize_schedule(self.game("Final", detailed)).events[0]
+        assert event.status == expected
+
+    def test_a_real_final_stays_final(self) -> None:
+        assert normalize_schedule(self.game("Final", "Final")).events[0].status == "final"
+
+    def test_a_game_that_was_not_played_carries_no_score(self) -> None:
+        event = normalize_schedule(self.game("Final", "Postponed")).events[0]
+        assert event.home_score is None and event.away_score is None
+
+    def test_the_real_season_has_forty_two_unplayed_games(self) -> None:
+        """Verificado sobre la temporada 2024 completa: 36 aplazados, 6 cancelados."""
+        from sportstar.backfill import load_backfill
+
+        events = [e for p in load_backfill() for e in normalize_schedule(p).events]
+        if not events:
+            pytest.skip("sin histórico descargado")
+        unplayed = [e for e in events if e.status in ("postponed", "cancelled")]
+        assert len(unplayed) == 42
+        assert all(e.home_score is None for e in unplayed)
+
+
+class TestGameType:
+    def test_game_type_is_captured(self) -> None:
+        result = normalize_schedule(load("mlb_stats_api_schedule"))
+        captured = [e.game_type for e in result.events if e.game_type is not None]
+        assert captured
+        assert set(captured) == {"R"}
+
+    def test_the_real_season_contains_non_competitive_games(self) -> None:
+        """Por eso hace falta filtrar.
+
+        La temporada 2024 descargada trae 93 partidos de pretemporada, 7
+        exhibiciones y el All-Star mezclados con los 2.469 de temporada regular.
+        """
+        from collections import Counter
+
+        from sportstar.backfill import load_backfill
+
+        events = [e for p in load_backfill() for e in normalize_schedule(p).events]
+        if not events:
+            pytest.skip("sin histórico descargado")
+        types = Counter(e.game_type for e in events)
+        assert types["S"] > 0  # pretemporada
+        assert types["E"] > 0  # exhibición
+        assert types["A"] > 0  # All-Star
+        assert types["R"] > 2000
+
+    def test_missing_game_type_is_none_not_an_error(self) -> None:
+        payload = {
+            "dates": [
+                {
+                    "date": "2024-04-01",
+                    "games": [
+                        {
+                            "gamePk": 1,
+                            "gameDate": "2024-04-01T18:00:00Z",
+                            "status": {"abstractGameState": "Preview"},
+                            "teams": {
+                                "away": {"team": {"id": 1, "name": "A"}},
+                                "home": {"team": {"id": 2, "name": "B"}},
+                            },
+                        }
+                    ],
+                }
+            ]
+        }
+        assert normalize_schedule(payload).events[0].game_type is None

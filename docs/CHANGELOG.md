@@ -704,3 +704,83 @@ victoria ajustada, y premiarla es otra forma de perseguir ruido.
 
 Todos los valores se revisan contra datos en Phase 3. Hoy son convenciones
 explícitas, no resultados.
+
+---
+
+## Phase 2b — Histórico real: 2.574 partidos de la temporada 2024
+
+**Estado:** histórico cargado y validado. Elo funcionando sobre datos reales.
+595 tests, 92% de cobertura.
+
+El operador descargó la temporada 2024 completa con `sportstar backfill` y la
+commiteó: 8 ficheros, 1.8 MB comprimidos, **2.574 partidos, cero errores de
+forma**.
+
+### Dos bugs que solo aparecen con una temporada entera delante
+
+**1. MLB marca los aplazados y cancelados como `"Final"`.**
+
+`abstractGameState` decía "Final" en 42 partidos que nunca se jugaron: 36
+aplazados y 6 cancelados. Solo `detailedState` los distingue.
+
+Guardarlos como terminados tiene tres consecuencias, y ninguna es cosmética:
+
+- Data Health los marcaría **eternamente** como partidos sin closing line, y ese
+  check es CRITICAL. El panel quedaría permanentemente en rojo por 42 partidos
+  fantasma, que es la forma en que un sistema de alertas deja de mirarse.
+- La liquidación intentaría resolver apuestas de partidos que no existieron. Un
+  cancelado es **VOID** —se devuelve el dinero—, no una derrota.
+- Entrarían al histórico del modelo como partidos reales sin marcador.
+
+Corregido leyendo `detailedState` antes que el abstracto.
+
+**2. El histórico trae pretemporada, exhibiciones y el All-Star.**
+
+De los 2.574 partidos: 2.469 de temporada regular, **93 de pretemporada, 7
+exhibiciones y 1 All-Star**.
+
+El síntoma fue inmediato al calcular Elo: **37 equipos** en una liga de 30, y
+hasta 171 partidos jugados en una temporada de 162. Los siete de más eran
+"American League All-Stars" —un equipo que no existe— y rivales de exhibición
+como Diablos Rojos del México y un filial de ligas menores.
+
+Lo grave no es el ruido de esos partidos, es que la pretemporada se juega con
+prospectos: sus resultados mueven el rating sin decir nada de la fuerza real del
+equipo.
+
+Corregido con `COMPETITIVE_GAME_TYPES`. Tras filtrar: **30 equipos, 162 partidos
+cada uno.**
+
+### Validación del Elo sobre la temporada real
+
+| # | Equipo | Elo |
+|---|---|---|
+| 1 | Los Angeles Dodgers | 1545.3 |
+| 2 | San Diego Padres | 1539.9 |
+| 3 | Philadelphia Phillies | 1531.2 |
+| ... | | |
+| 30 | Chicago White Sox | 1396.3 |
+
+Los Dodgers ganaron la Serie Mundial de 2024; los White Sox hicieron 41-121, el
+peor récord de la era moderna. No es una métrica de calidad —Elo no pretende
+batir al mercado— pero un orden absurdo habría delatado un error de signo o de
+emparejamiento, y no lo hay.
+
+Un test verifica además que el sistema sigue siendo de suma cero tras 2.436
+partidos, y que a mitad de temporada ningún equipo tiene más de 120 partidos
+incorporados: el invariante point-in-time se sostiene sobre datos reales, no solo
+sobre casos construidos.
+
+### Confirmación de un arreglo anterior
+
+**676 de los 2.574 partidos (26%) cruzan medianoche UTC.** Sin el arreglo de
+`officialDate`, un cuarto de cada temporada habría quedado fechado un día tarde.
+Lo que en un slate de nueve partidos parecía un detalle, en una temporada son 676
+partidos mal archivados.
+
+### Nota sobre el acceso
+
+`load_backfill` acepta también `.json` sin comprimir, y
+`docs/BACKFILL_WINDOWS.md` documenta cómo traer el histórico desde un navegador
+sin instalar nada. No hizo falta —el operador ejecutó el CLI— pero queda como
+respaldo para máquinas sin Python.

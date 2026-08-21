@@ -25,6 +25,10 @@ class NormalizedEvent:
     home_team_raw: str = ""
     away_team_raw: str = ""
     status: str | None = None
+    # Tipo de competición. Distinguirlo no es cosmético: la pretemporada y las
+    # exhibiciones se juegan con prospectos y contra rivales que ni siquiera son
+    # equipos de la liga, así que sus resultados no dicen nada de la fuerza real.
+    game_type: str | None = None
     home_score: int | None = None
     away_score: int | None = None
     venue_raw: str | None = None
