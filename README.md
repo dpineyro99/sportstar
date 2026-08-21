@@ -50,6 +50,7 @@ Si algo falla, el mensaje dice qué clave faltaba y qué llegó en su lugar.
 | [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) | Esquema de base de datos |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Fases con criterios de salida verificables |
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Decisiones y cambios con consecuencias |
+| [`docs/BACKFILL_WINDOWS.md`](docs/BACKFILL_WINDOWS.md) | Cómo traer el histórico de MLB sin instalar nada |
 
 ## Principios
 

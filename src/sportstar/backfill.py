@@ -95,12 +95,23 @@ def run_backfill(start: date, end: date, out_dir: Path | None = None) -> int:
 
 
 def load_backfill(out_dir: Path | None = None) -> list[dict[str, Any]]:
-    """Lee los payloads descargados, en orden cronológico."""
+    """Lee los payloads descargados, en orden cronológico.
+
+    Acepta `.json.gz` y `.json` sin comprimir. Lo segundo no es por comodidad:
+    la vía de respaldo para conseguir el histórico es descargar las URLs desde
+    un navegador y subir los ficheros por la web de GitHub, sin instalar nada.
+    Ese camino produce JSON plano, y exigir compresión lo cerraría por un
+    detalle de formato.
+    """
     target = out_dir or RAW_DIR
     if not target.exists():
         return []
+
     payloads: list[dict[str, Any]] = []
-    for path in sorted(target.glob("schedule_*.json.gz")):
-        with gzip.open(path, "rt", encoding="utf-8") as handle:
-            payloads.append(json.load(handle))
+    for path in sorted(target.glob("schedule_*.json*")):
+        if path.suffix == ".gz":
+            with gzip.open(path, "rt", encoding="utf-8") as handle:
+                payloads.append(json.load(handle))
+        elif path.suffix == ".json":
+            payloads.append(json.loads(path.read_text(encoding="utf-8")))
     return payloads
