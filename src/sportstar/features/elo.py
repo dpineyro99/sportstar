@@ -106,6 +106,60 @@ class EloModel:
             self.games_seen[team_id] = self.games_seen.get(team_id, 0) + 1
 
 
+@dataclass(frozen=True, slots=True)
+class PregameState:
+    """Lo que se sabía de un partido **justo antes** de jugarse.
+
+    Es la fila de entrenamiento: features a la izquierda, resultado a la derecha,
+    y la garantía de que las primeras no vieron el segundo.
+    """
+
+    game: GameResult
+    home_rating: float
+    away_rating: float
+    home_games_played: int
+    away_games_played: int
+
+    @property
+    def rating_diff(self) -> float:
+        return self.home_rating - self.away_rating
+
+    @property
+    def min_games_played(self) -> int:
+        """Partidos del equipo con menos historial. Alimenta el confidence."""
+        return min(self.home_games_played, self.away_games_played)
+
+
+def walk_forward(games: list[GameResult], **params: float) -> list[PregameState]:
+    """Recorre la temporada guardando el estado **previo** a cada partido.
+
+    Es la forma correcta y además la eficiente. La alternativa —llamar a
+    `fit_through` una vez por partido— es O(n²): sobre una temporada de 2.400
+    partidos son casi seis millones de actualizaciones repetidas.
+
+    Pero la razón para preferirla no es la velocidad, es que el orden es
+    explícito: se lee el rating, se genera la fila, y solo entonces se incorpora
+    el resultado. Invertir esas dos últimas líneas produciría un modelo que
+    predice partidos que ya ha visto, y el síntoma sería un backtest excelente.
+    """
+    model = EloModel(**params)  # type: ignore[arg-type]
+    states: list[PregameState] = []
+
+    for game in sorted(games, key=lambda g: g.observed_at):
+        states.append(
+            PregameState(
+                game=game,
+                home_rating=model.rating(game.home_team_id),
+                away_rating=model.rating(game.away_team_id),
+                home_games_played=model.sample_size(game.home_team_id),
+                away_games_played=model.sample_size(game.away_team_id),
+            )
+        )
+        model.update(game)
+
+    return states
+
+
 def fit_through(
     games: list[GameResult],
     as_of: datetime,

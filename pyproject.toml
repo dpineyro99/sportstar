@@ -8,6 +8,8 @@ dependencies = [
     "alembic>=1.13",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
+    "numpy>=1.26",
+    "scikit-learn>=1.5",
 ]
 
 [project.optional-dependencies]
@@ -33,6 +35,12 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[[tool.mypy.overrides]]
+# scikit-learn no publica stubs de tipos. Se silencia solo este paquete: un
+# `ignore_missing_imports` global escondería errores reales en el resto.
+module = ["sklearn.*"]
+ignore_missing_imports = true
 
 [tool.mypy]
 python_version = "3.11"

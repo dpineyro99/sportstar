@@ -784,3 +784,123 @@ partidos mal archivados.
 `docs/BACKFILL_WINDOWS.md` documenta cómo traer el histórico desde un navegador
 sin instalar nada. No hizo falta —el operador ejecutó el CLI— pero queda como
 respaldo para máquinas sin Python.
+
+---
+
+## Phase 2b — El primer modelo, y por qué no se despliega
+
+**Estado:** modelo entrenado y evaluado sobre la temporada 2024. **No pasa el
+criterio de salida.** 662 tests, 92% de cobertura.
+
+Es el resultado importante de esta fase, y es negativo. Conviene leerlo entero.
+
+### Resultados sobre corte temporal (638 partidos de test)
+
+| Modelo | Brier | log loss | ECE | skill |
+|---|---|---|---|---|
+| Tasa base (sin información) | 0.2498 | 0.6928 | 0.0134 | −0.0007 |
+| Elo solo | 0.2433 | 0.6796 | 0.0329 | +0.0255 |
+| Regresión logística (5 features) | 0.2425 | 0.6780 | 0.0351 | +0.0285 |
+
+La logística mejora el Brier de Elo en **0.0008**. Prueba pareada sobre los 638
+partidos: **t = −0.70**. Indistinguible de ruido.
+
+### El fallo que las métricas escondían
+
+Cuatro de los cinco coeficientes salieron **con el signo invertido**:
+
+```
+season_win_pct_diff  +0.406
+venue_win_pct_diff   -0.160   <- peor récord local predice MÁS victorias
+rest_diff            -0.069
+form_diff            -0.028   <- peor forma reciente predice MÁS victorias
+elo_diff             -0.010   <- peor Elo predice MÁS victorias
+```
+
+Individualmente, **todas** correlacionan en positivo con el resultado
+(elo +0.11, season +0.12, venue +0.085, form +0.057). Los signos correctos
+existen en los datos; es la regresión la que los invierte.
+
+La causa es colinealidad. Sobre las filas que el modelo entrena:
+
+```
+elo_diff ~ season_win_pct_diff    0.93
+season_win_pct_diff ~ venue_...   0.87
+elo_diff ~ venue_win_pct_diff     0.82
+```
+
+No son cinco señales: es **una señal medida cinco veces**. Cuando las columnas
+dicen lo mismo, el reparto de peso entre ellas es arbitrario y los signos se
+vuelven ruido.
+
+**Lo grave no es la métrica** —apenas se movía— **sino que las explicaciones se
+vuelven mentira.** Este sistema deriva las razones de los coeficientes
+(`pipeline/reasons.py`). Un coeficiente invertido convierte "descanso: −0.07%"
+en desinformación con formato de dato, presentada al usuario junto a un stake
+recomendado.
+
+### Un detalle que casi hace invisible el problema
+
+La colinealidad **solo aparece en los datos que el modelo ve**. Sobre la
+temporada entera, `elo_diff` y `season_win_pct_diff` correlacionan 0.66 —por
+debajo del umbral—; sobre las filas post burn-in, 0.93.
+
+En abril el Elo apenas se ha movido de 1500 mientras el récord oscila con cinco
+partidos jugados. Diagnosticar sobre el conjunto equivocado habría dado el
+problema por inexistente. Hay un test que fija ambas mediciones.
+
+### El guardarraíl: `validation/features.py`
+
+Tres checks que corren antes de aceptar un modelo:
+
+- **Colinealidad**: pares con |r| ≥ 0.80.
+- **Signos invertidos**: coeficiente que contradice la correlación marginal de
+  esa feature con el resultado. Ignora las features sin señal apreciable, porque
+  ahí el signo es ruido y marcarlo sería una falsa alarma.
+- **Features sin señal**: |r| < 0.02 con el resultado.
+
+`is_interpretable` es False si hay algún signo invertido. Un modelo así puede
+desplegarse si sus métricas lo justifican, pero **no puede generar
+explicaciones**.
+
+### La decisión
+
+`DEFAULT_MODEL_FEATURES = ("elo_diff",)`.
+
+Con una sola columna: coeficiente **+0.222** (signo correcto), Brier 0.2426
+—idéntico al modelo de cinco— y **mejor calibración** (ECE 0.027 frente a 0.035).
+
+La elección es por parsimonia e interpretabilidad, **no por rendimiento en test**.
+Comparé cinco conjuntos de features sobre el mismo test set, así que ese test set
+está quemado para selección: elegir por él lo convierte en entrenamiento. La
+métrica de 0.2419 del mejor conjunto (`elo_diff + rest_diff`) es optimista por
+construcción y no se usa para decidir.
+
+### Qué falta para batir al mercado
+
+El techo de este modelo no es el algoritmo, son las features. Del calendario solo
+sale **fuerza de equipo**, y eso lo captura mejor un solo número que cinco.
+
+Para tener una probabilidad que compita con un closing line hacen falta datos que
+el calendario no trae:
+
+| Feature | Qué necesita |
+|---|---|
+| Calidad del starting pitcher (FIP/xFIP) | estadísticas de jugador |
+| Estado y fatiga del bullpen | log de lanzamientos por partido |
+| Park factors | histórico por estadio |
+| Alineación confirmada | endpoint de lineups |
+| Clima | proveedor meteorológico |
+
+Nada de esto está en `/api/v1/schedule`.
+
+### Sobre el criterio de salida
+
+El roadmap exige batir el Brier de `market_consensus_v1` para desplegar. **No se
+puede evaluar todavía**: no hay odds históricas, y las de The Odds API son de
+pago.
+
+Lo que sí se puede afirmar: el modelo apenas bate a Elo, y Elo no es el mercado.
+Un closing line de un book sharp está mejor calibrado que cualquiera de los tres
+modelos de la tabla. La conclusión provisional es que **este modelo no batiría al
+mercado**, y el criterio de salida no está en riesgo de decidirse por optimismo.

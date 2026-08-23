@@ -87,9 +87,15 @@ modelo estadístico. Lo que mida aquí es edge estructural puro (`ARCHITECTURE.m
 - ✅ `backfill`: histórico desde una máquina con red, por git.
 - ✅ **Temporada 2024 cargada y validada**: 2.574 partidos, 30 equipos, Elo
   ordenando la liga de forma sensata (Dodgers arriba, White Sox abajo).
-- ⏳ `FeatureBuilder` MLB v1: forma reciente, starting pitcher (FIP/xFIP),
-  bullpen y su fatiga, splits de lateralidad, park factor, descanso, home/away.
-- ⏳ Regresión logística sobre esas features.
+- ✅ `FeatureBuilder` MLB v1 sobre el calendario: Elo, forma reciente, descanso,
+  récord de temporada y splits local/visitante.
+- ✅ Regresión logística, métricas de calibración y diagnóstico de features.
+- ❌ **El modelo no pasa el criterio de salida.** Mejora sobre Elo de 0.0008 en
+  Brier (t = −0.70, no significativa), y con las cinco features cuatro
+  coeficientes salían invertidos por colinealidad. Se deja en `elo_diff` sola,
+  que es interpretable y mide igual.
+- ⏳ Features que necesitan datos que el calendario no trae: calidad del
+  starting pitcher, bullpen, park factors, alineaciones, clima.
 
 Las features específicas necesitan histórico: sin temporadas de partidos no hay
 forma de calcular forma reciente ni calidad de pitcher, ni de validar nada.
