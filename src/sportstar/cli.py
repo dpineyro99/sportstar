@@ -21,6 +21,7 @@ from .db.session import create_db_engine, create_session_factory, database_url, 
 from .demo import run_demo
 from .health import persist_report, run_checks
 from .seeds import seed_catalog
+from .sync import run_sync
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -119,6 +120,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("status", help="resumen del contenido de la base")
     sub.add_parser("demo", help="ejecuta el pipeline con precios sintéticos")
     sub.add_parser("capture", help="captura fixtures reales de los proveedores")
+    sub.add_parser("sync", help="captura un snapshot del mercado (para programar)")
     sub.add_parser("health", help="checks de calidad de datos")
     sub.add_parser("serve", help="levanta la API HTTP")
     backfill = sub.add_parser("backfill", help="descarga histórico de MLB a data/raw/")
@@ -135,6 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         "status": cmd_status,
         "demo": run_demo,
         "capture": run_capture,
+        "sync": run_sync,
         "health": cmd_health,
         "serve": cmd_serve,
     }
