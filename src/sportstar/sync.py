@@ -144,7 +144,10 @@ def load_snapshots(
     pattern = f"{day:%Y-%m-%d}/{kind}_*.json.gz" if day else f"*/{kind}_*.json.gz"
     snapshots = []
     for path in sorted(target.glob(pattern)):
-        stamp = datetime.strptime(path.stem.split("_")[-1], "%Y%m%dT%H%MZ").replace(tzinfo=UTC)
+        # `path.stem` sobre "odds_2026...Z.json.gz" deja el ".json" pegado: solo
+        # quita la última extensión. Se corta por el separador del propio nombre.
+        stamp_text = path.name.split("_", 1)[1].split(".", 1)[0]
+        stamp = datetime.strptime(stamp_text, "%Y%m%dT%H%MZ").replace(tzinfo=UTC)
         with gzip.open(path, "rt", encoding="utf-8") as handle:
             snapshots.append((stamp, json.load(handle)))
     return snapshots

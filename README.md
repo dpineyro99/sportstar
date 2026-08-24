@@ -51,6 +51,7 @@ Si algo falla, el mensaje dice qué clave faltaba y qué llegó en su lugar.
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Fases con criterios de salida verificables |
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Decisiones y cambios con consecuencias |
 | [`docs/BACKFILL_WINDOWS.md`](docs/BACKFILL_WINDOWS.md) | Cómo traer el histórico de MLB sin instalar nada |
+| [`docs/CAPTURA_PROGRAMADA.md`](docs/CAPTURA_PROGRAMADA.md) | Captura automática del mercado y su puesta en marcha |
 
 ## Principios
 

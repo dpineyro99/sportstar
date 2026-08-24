@@ -904,3 +904,79 @@ Lo que sí se puede afirmar: el modelo apenas bate a Elo, y Elo no es el mercado
 Un closing line de un book sharp está mejor calibrado que cualquiera de los tres
 modelos de la tabla. La conclusión provisional es que **este modelo no batiría al
 mercado**, y el criterio de salida no está en riesgo de decidirse por optimismo.
+
+---
+
+## Captura automática del mercado
+
+**Estado:** red del entorno abierta. Pipeline verificado de punta a punta sobre
+el mercado **en vivo**. 672 tests, 91% de cobertura.
+
+### Acceso confirmado
+
+| Fuente | Estado |
+|---|---|
+| `statsapi.mlb.com` | abierto |
+| `api.the-odds-api.com` | abierto |
+| `.../v4/historical/` | **401** — existe, es plan de pago |
+| `baseballsavant.mlb.com` | bloqueado |
+| `retrosheet.org` | bloqueado |
+| GitHub raw, PyPI | abiertos |
+
+### Verificación en vivo
+
+Captura real del 2026-08-23, ingesta y pipeline completo:
+
+```
+SYNC_SCHEDULE  25 recibidos, 25 emparejados, 0 errores
+SYNC_ODDS      11 recibidos, 11 emparejados, 178 snapshots, 0 errores
+               18 candidates, 0 recomendaciones
+```
+
+Cero recomendaciones otra vez, con la mejor ventaja en +0.18%. Consistente con la
+jornada anterior, y sigue sin ser evidencia suficiente para concluir nada: son 46
+observaciones en total.
+
+### Coste de cuota, medido
+
+**1 crédito por captura** con `markets=h2h` y `regions=us`, leído de
+`x-requests-remaining` en respuestas reales (498 → 497).
+
+Corrijo una estimación anterior en la que dije que la cuota se agotaría en días:
+eso era suponiendo tres mercados y varias regiones. Con la configuración actual,
+los 500/mes del plan gratuito dan para ~16 capturas diarias.
+
+### El workflow
+
+`.github/workflows/sync.yml` captura cada hora entre 16:00 y 04:00 UTC — trece al
+día, 390 al mes, dentro de cuota con margen.
+
+Se eligió GitHub Actions y no un cron en el entorno de desarrollo porque ese
+contenedor es efímero y muere con la sesión. Esto corre en infraestructura de
+GitHub y sobrevive.
+
+Detalles que importan:
+
+- **`concurrency` sin `cancel-in-progress`**: dos capturas solapadas chocarían al
+  hacer push. Se descarta la nueva en vez de cortar la que está escribiendo.
+- **Reintento con `pull --rebase`**: la segunda captura se reconstruye sobre la
+  primera, nunca la pisa.
+- **Los eventos `schedule` de GitHub solo disparan en la rama por defecto.** El
+  workflow debe llegar a `main` para que la captura arranque sola.
+
+### Bug corregido en el lector de snapshots
+
+`path.stem` sobre `odds_20260823T2359Z.json.gz` devuelve
+`odds_20260823T2359Z.json`: solo quita la última extensión. El parseo del
+timestamp fallaba con toda captura comprimida, así que la lectura del histórico
+estaba rota desde el primer fichero.
+
+### Por qué esto es lo urgente
+
+El closing line es la única medición del sistema cuya ventana no vuelve. Cada día
+sin capturar es CLV perdido para siempre, y el CLV es entre 8 y 10 veces más
+eficiente en muestra que el P&L.
+
+Con 46 observaciones no se puede distinguir "nunca hay oportunidades" de "las hay
+el 5% de las veces" — y el 5% serían ~250 apuestas por temporada. Seis jornadas
+permiten descartar una frecuencia del 2%; dos semanas, estimarla.
