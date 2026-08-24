@@ -4,6 +4,67 @@ Decisiones y cambios con consecuencias. No se documenta lo trivial.
 
 ---
 
+## Histórico de odds — D1 resuelto sin comprar nada
+
+**Estado:** 25.586 partidos de MLB (2011-2021) con moneyline de apertura y cierre,
+disponibles con `sportstar odds-history`. 705 tests, `ruff` y `mypy --strict`
+limpios. Detalle completo en [`ODDS_HISTORY.md`](ODDS_HISTORY.md).
+
+### La decisión
+
+El endpoint histórico de The Odds API está detrás de plan de pago. En vez de
+comprarlo, se usa el archivo público que publica
+`flancast90/sportsbookreview-scraper` (MIT), anclado a un commit para que el
+dataset de un backtest no pueda cambiar bajo los pies.
+
+### El volcado venía roto, y eso es lo importante
+
+Cada fila del archivo publicado **mezcla dos partidos distintos**: el scraper de
+origen se salta una fila de más antes de emparejar, así que junta el local del
+partido k con el visitante del k+1. Los síntomas son inconfundibles —2.653
+"empates" imposibles, sobre-redondeos del −18%, el local ganando el 48,2%— y el
+bug es determinista, así que se deshace exactamente. Tras repararlo: 18 empates,
+sobre-redondeo entre 1,5% y 4,8%, local al **53,5%** (el valor real de MLB) y la
+línea de cierre calibrando con un ECE de 0,0036.
+
+Contrastado además contra la MLB Stats API: **61 de 63 partidos casan exactos**
+en (local, visitante, marcador). Los dos que no son un suspendido sin marcador y
+una segunda parte de doble jornada.
+
+**La lección para el proyecto no es el bug, es cómo apareció.** No apareció
+leyendo el código del upstream: apareció porque los primeros números que salieron
+del fichero eran imposibles —el local ganando menos de la mitad de sus partidos,
+mercados con dos favoritos— y se miraron con desconfianza en vez de seguir
+adelante. Un dataset de un tercero que se acepta sin auditar no falla: **da un
+número**, y ese número parece un resultado.
+
+### Por eso la corrección se detecta, no se aplica
+
+Si el upstream arregla su scraper, aplicar la corrección de oficio *crearía* la
+corrupción que hoy repara. `detect_pairing` construye las dos hipótesis, mide en
+cada una cuántos datos salen físicamente imposibles, y aborta si ninguna es
+coherente o si las dos lo son por igual. Sobre el fichero real gana por un factor
+682, no por un pelo.
+
+### Auditoría bloqueante del histórico
+
+`validation/market_history.py` audita cualquier histórico de mercado antes de
+dejarlo entrar: sobre-redondeo plausible, tasa de victoria local, calibración del
+cierre, y que el cierre gane a la apertura. El último es el más valioso porque es
+*interno* —no necesita fuente externa contra la que contrastar—. Un `FATAL` no es
+una advertencia en el log: `load()` lanza `HistoryRejected` y el histórico no se
+usa.
+
+### Qué desbloquea y qué no
+
+Phase 3 deja de depender de acumular cierres propios durante una temporada. Pero
+el archivo es de **consenso, sin identificar la casa**, así que el **edge
+estructural sigue sin poder backtestearse**: comparar casas requiere precios por
+casa, y esos solo salen de la captura propia. Son dos fuentes de edge y solo una
+queda desbloqueada.
+
+---
+
 ## Phase 1 — Core data model + núcleo matemático
 
 **Estado:** completada. 204 tests, 100% de cobertura en `core/` y `validation/`,

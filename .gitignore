@@ -16,3 +16,9 @@ dist/
 # El histórico descargado se commitea a propósito: es como viajan los datos
 # desde una máquina con red hasta el entorno de desarrollo, que no la tiene.
 !data/raw/
+
+# El archivo de SBR sí se queda fuera: son datos de un tercero sin licencia
+# explícita (el código del repositorio de origen es MIT, los datos no lo son).
+# Se descargan en tiempo de ejecución y se cachean, no se redistribuyen desde
+# aquí. `sportstar odds-history` los vuelve a traer en dos segundos.
+data/raw/odds_history/

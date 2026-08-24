@@ -20,6 +20,7 @@ from .db.catalog import League, Sport, Sportsbook, Team
 from .db.session import create_db_engine, create_session_factory, database_url, session_scope
 from .demo import run_demo
 from .health import persist_report, run_checks
+from .odds_history import run as run_odds_history
 from .seeds import seed_catalog
 from .sync import run_sync
 
@@ -122,6 +123,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("capture", help="captura fixtures reales de los proveedores")
     sub.add_parser("sync", help="captura un snapshot del mercado (para programar)")
     sub.add_parser("health", help="checks de calidad de datos")
+    sub.add_parser(
+        "odds-history", help="descarga, repara y audita el histórico de odds (2011-2021)"
+    )
     sub.add_parser("serve", help="levanta la API HTTP")
     backfill = sub.add_parser("backfill", help="descarga histórico de MLB a data/raw/")
     backfill.add_argument("--start", required=True, help="fecha inicial (YYYY-MM-DD)")
@@ -139,6 +143,7 @@ def main(argv: list[str] | None = None) -> int:
         "capture": run_capture,
         "sync": run_sync,
         "health": cmd_health,
+        "odds-history": run_odds_history,
         "serve": cmd_serve,
     }
     return commands[args.command]()

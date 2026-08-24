@@ -112,9 +112,16 @@ forma de calcular forma reciente ni calidad de pitcher, ni de validar nada.
 
 ## Phase 3 — Backtesting engine
 
-D1 (histórico de odds comprado) acelera esta fase pero ya no la bloquea: los
-cierres del slate completo capturados desde Phase 2a generan histórico propio
-utilizable.
+D1 **resuelto sin comprar nada**: el archivo público de SBR aporta 25.586
+partidos de MLB (2011-2021) con moneyline de apertura y cierre. Venía corrompido
+por un bug del scraper de origen; el bug es determinista y se repara, y el
+resultado pasa una auditoría bloqueante de cuatro checks. Ver
+[`ODDS_HISTORY.md`](ODDS_HISTORY.md).
+
+Ojo con el alcance: ese histórico es de **consenso, sin identificar la casa**, así
+que sirve para backtestear el edge de modelo y para calibrar, pero **no** para el
+edge estructural —comparar precios entre casas—, que solo se puede validar con la
+captura propia que corre cada hora desde Phase 2a.
 
 - Replay point-in-time: reconstruye el estado del mundo en `T` y ejecuta el pipeline.
 - **Evaluación contra el cierre sobre todos los candidates**, no solo sobre apuestas
@@ -236,7 +243,7 @@ consulta concreta.
 | D5 books objetivo | Phase 2a — define qué books entran en el consenso sharp |
 | D2 fuente de stats MLB | Phase 2b |
 | D4 definición de unit | Phase 4 |
-| D1 histórico de odds | opcional; acelera Phase 3, ya no la bloquea |
+| ~~D1 histórico de odds~~ | ✅ resuelto: archivo público de SBR reparado, 2011-2021, sin coste |
 
 ---
 
