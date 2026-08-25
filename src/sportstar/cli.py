@@ -15,6 +15,7 @@ from alembic import command
 from alembic.config import Config
 
 from .backfill import run_backfill
+from .backtesting.run import run as run_backtest_cmd
 from .capture import run_capture
 from .db.catalog import League, Sport, Sportsbook, Team
 from .db.session import create_db_engine, create_session_factory, database_url, session_scope
@@ -127,6 +128,12 @@ def main(argv: list[str] | None = None) -> int:
         "odds-history", help="descarga, repara y audita el histórico de odds (2011-2021)"
     )
     sub.add_parser("serve", help="levanta la API HTTP")
+    backtest = sub.add_parser("backtest", help="compara estrategias sobre el histórico (2011-2021)")
+    backtest.add_argument(
+        "--test",
+        action="store_true",
+        help="evalúa también el test set. Queda anotado: cada uso lo acerca a ser train.",
+    )
     backfill = sub.add_parser("backfill", help="descarga histórico de MLB a data/raw/")
     backfill.add_argument("--start", required=True, help="fecha inicial (YYYY-MM-DD)")
     backfill.add_argument("--end", required=True, help="fecha final (YYYY-MM-DD)")
@@ -134,6 +141,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "backfill":
         return cmd_backfill(args)
+    if args.command == "backtest":
+        return run_backtest_cmd(use_test_set=args.test)
 
     commands = {
         "init": cmd_init,

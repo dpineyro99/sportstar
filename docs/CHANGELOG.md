@@ -4,6 +4,104 @@ Decisiones y cambios con consecuencias. No se documenta lo trivial.
 
 ---
 
+## Phase 3 — Backtesting engine: el mercado gana
+
+**Estado:** completada. 784 tests, `ruff` y `mypy --strict` limpios. Detalle en
+[`BACKTESTING.md`](BACKTESTING.md) y [`MODELS.md`](MODELS.md).
+
+### El resultado
+
+Sobre 25.560 partidos de MLB (2011-2021), **ningún modelo bate al mercado**.
+
+| estrategia | Brier vs mercado (train) | cerca del cierre | ROI |
+|---|---|---|---|
+| market_consensus v1 | +0,00000 | 0,0000 (por construcción) | — |
+| elo v1 | **−0,00280** | 0,2759 | **−4,66%** |
+| elo_blend w=0,05 | −0,00002 | 0,4864 | — |
+| elo_blend w=0,10 | −0,00005 | 0,4742 | — |
+| elo_blend w=0,20 | −0,00014 | 0,4480 | −1,14% |
+
+Elo no aporta poco: aporta negativo, y de forma **monótona en el peso de
+mezcla**. Dos métricas independientes, misma dirección, mismo resultado en
+holdout. Es un negativo robusto, no ruido. La conclusión operativa está en
+`MODELS.md`: no se despliega nada, y lo que falta es lanzador abridor.
+
+### El criterio de despliegue exige dos condiciones, y ya sirvió
+
+Mejor Brier **y** más cerca del cierre. En holdout, `elo_blend w=0,05` mejoró el
+Brier del mercado en +0,00002 con una tasa de cercanía al cierre de 0,42
+(z = −11,6). Con una sola condición se habría promovido un modelo que no vale
+nada. Con las dos, no.
+
+### El sanity gate bloquea de verdad
+
+`BacktestResult.model` y `.betting` **lanzan `SanityBlocked`** si el informe no
+pasó: no hay forma de leer las métricas sin haber pasado los checks, porque la
+única forma de leerlas es por esas propiedades.
+
+Funcionó sobre datos reales. En el holdout, dos estrategias produjeron un ROI de
+**+511,6% sobre 2 apuestas** y **+56,0% sobre 59**. El sistema se negó a
+imprimirlos — pero sí imprime la fila marcada como bloqueada, porque omitirla en
+silencio convertiría la tabla en un ranking de las que sobrevivieron.
+
+El test más valioso de la fase construye un **oráculo** que mira el resultado del
+partido que predice, y comprueba que produce >90% de acierto **y** que el sistema
+lo bloquea. Un backtest que no distingue un buen modelo de uno con leakage no
+sirve para nada.
+
+### Un error propio que quedó documentado
+
+La primera versión medía "el cierre se movió hacia mi lado" y lo presentaba como
+"el modelo bate al cierre". Daba 51,4% para Elo con z = +3,8: significativo, y
+sin contenido — para cualquier modelo calibrado esa cifra sale ~50% por pura
+simetría. Con la métrica correcta de `ARCHITECTURE.md` §4.6 —¿está el modelo más
+cerca del cierre que el mercado de apertura?— Elo da **27,6%**.
+
+Queda escrito porque el número equivocado era *plausible*, y esa es la clase de
+error que sobrevive a una revisión rápida.
+
+### La convención temporal, hacia el lado seguro
+
+El archivo no trae horas. Se fija que el resultado del día D se conoce a las
+`D 23:59Z` y la decisión se toma a las `D 00:00Z`, así que **ningún partido del
+día D alimenta una predicción del día D**. Eso tira información real —en MLB hay
+muchas tardes con resultados ya cerrados— y se tira a propósito: errar hacia "lo
+supimos después" desaprovecha un dato; errar hacia "lo supimos antes" produce
+leakage, y el leakage no da error, da buenos resultados.
+
+`replay.py` lo hace cumplir por la forma del bucle, y `sanity.py` lo verifica
+después por su cuenta con los pares `(as_of, observed_at)`. El backtest no se
+cree a sí mismo.
+
+### Dobles jornadas
+
+341 pares de partidos del archivo son dobles jornadas reales —verificadas contra
+la MLB Stats API—. Sin distinguirlas colapsan en un solo evento y el check de
+duplicados bloquea el backtest entero, con razón. Se distinguen con
+`archive_sequence`, que **no es** el número oficial de partido de MLB: el archivo
+no lo trae y su orden no coincide con el de la liga.
+
+### El ledger del holdout
+
+`data/backtests/holdout_ledger.json` cuenta los usos del conjunto de holdout,
+persiste, y el contador sale impreso con un aviso a partir del segundo. La regla
+"se toca una vez" no se puede imponer con código; lo que sí se puede es quitarle
+la deniabilidad. El ledger marca hoy 2 usos, ambos con la misma conclusión y sin
+elegir modelo con ninguno — se deja anotado en vez de reiniciarlo, porque un
+contador que se puede poner a cero no cuenta nada.
+
+### Lo que esta fase NO cubre
+
+- **El edge estructural.** El archivo es de consenso, sin identificar la casa, así
+  que comparar precios entre casas no se puede backtestear. Solo lo valida la
+  captura en vivo.
+- **El filtro real.** Cuatro de los siete gates de producción no se pueden
+  evaluar con este histórico (`line_freshness`, `reference_books`,
+  `data_quality`, `model_agreement`). Se asumen superados, el informe lo dice en
+  cada ejecución, y la evaluación del filtro es por tanto parcial.
+
+---
+
 ## Histórico de odds — D1 resuelto sin comprar nada
 
 **Estado:** 25.586 partidos de MLB (2011-2021) con moneyline de apertura y cierre,

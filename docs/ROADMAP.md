@@ -139,7 +139,14 @@ captura propia que corre cada hora desde Phase 2a.
 - Respuesta con datos a: ¿qué edge mínimo funciona? ¿qué confidence funciona?
 
 **Regla anti-overfit:** el test set temporal se toca **una vez**. Cada iteración
-sobre él lo convierte en train. Se registra cuántas veces se ha usado.
+sobre él lo convierte en train. Se registra cuántas veces se ha usado, en
+`data/backtests/holdout_ledger.json`, y el contador sale impreso en cada informe.
+
+**Estado: completada.** Ver [`BACKTESTING.md`](BACKTESTING.md). El resultado es
+un negativo robusto: ningún modelo bate al mercado, en train ni en holdout, con
+dos métricas independientes y degradación monótona en el peso de mezcla. Quedan
+sin cubrir dos cosas que este histórico no permite —el edge estructural y cuatro
+de los siete gates—, documentadas en §7 de ese fichero.
 
 ---
 
