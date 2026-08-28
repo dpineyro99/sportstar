@@ -182,3 +182,55 @@ def test_la_mejora_sobre_el_mercado_tiene_el_signo_correcto() -> None:
 
     # La baseline es el mercado: la mejora tiene que ser exactamente 0.
     assert performance.brier_vs_market == pytest.approx(0.0, abs=1e-12)
+
+
+class TestConcentracionDeStake:
+    """ROI y retorno medio son cantidades distintas, y con Kelly pueden discrepar.
+
+    Se descubrió midiendo: en el holdout 2019-2021 una estrategia dio ROI +2,04%
+    con retorno medio por apuesta de -2,33%. La apuesta típica perdía y el
+    agregado ganaba, porque las pocas apuestas grandes acertaron. Reportar solo
+    el ROI habría contado la historia al revés.
+    """
+
+    def test_el_roi_pondera_por_stake_y_la_media_no(self) -> None:
+        # Una apuesta grande que gana, dos pequeñas que pierden.
+        performance = betting_performance(
+            [
+                _candidate(won=True, units=10.0, taken=2.0),
+                _candidate(won=False, units=1.0, taken=2.0),
+                _candidate(won=False, units=1.0, taken=2.0),
+            ]
+        )
+
+        # +10 -1 -1 = +8 sobre 12 apostadas.
+        assert performance.roi == pytest.approx(8 / 12)
+        # Pero dos de cada tres apuestas perdieron el 100% de su stake.
+        assert performance.mean_return == pytest.approx((1.0 - 1.0 - 1.0) / 3)
+
+    def test_el_aviso_salta_cuando_discrepan_en_el_signo(self) -> None:
+        performance = betting_performance(
+            [
+                _candidate(won=True, units=10.0, taken=2.0),
+                _candidate(won=False, units=1.0, taken=2.0),
+                _candidate(won=False, units=1.0, taken=2.0),
+            ]
+        )
+
+        assert performance.roi > 0
+        assert performance.mean_return < 0
+        assert performance.stake_concentration_warning
+
+    def test_no_salta_cuando_coinciden(self) -> None:
+        performance = betting_performance(
+            [
+                _candidate(won=True, units=1.0, taken=2.0),
+                _candidate(won=True, units=1.0, taken=2.0),
+                _candidate(won=False, units=1.0, taken=2.0),
+            ]
+        )
+
+        assert not performance.stake_concentration_warning
+
+    def test_sin_apuestas_no_hay_aviso(self) -> None:
+        assert not betting_performance([_candidate(recommended=False)]).stake_concentration_warning

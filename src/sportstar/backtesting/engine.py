@@ -126,6 +126,7 @@ class BacktestResult:
                 f"  units apostadas       {betting.units_staked:.2f}",
                 f"  units ganadas         {betting.units_profit:+.2f}",
                 f"  ROI                   {betting.roi:+.4f}",
+                f"  retorno medio/apuesta {betting.mean_return:+.4f}",
                 f"  cuota media           {betting.avg_decimal_odds:.3f}",
                 f"  drawdown máximo       {betting.max_drawdown_units:.2f} units",
                 f"  bate al cierre        {betting.beat_close_rate:.4f}",
@@ -133,6 +134,14 @@ class BacktestResult:
                 f"  ratio señal/ruido     {ratio:.4f}"
                 if ratio is not None
                 else "  ratio señal/ruido     n/d (muestra insuficiente)",
+            ]
+        if betting.n_bets and betting.stake_concentration_warning:
+            lines += [
+                "",
+                "  ⚠️  el ROI y el retorno medio por apuesta discrepan en el signo:",
+                f"      ROI {betting.roi:+.4f} frente a media {betting.mean_return:+.4f}.",
+                "      El agregado lo deciden unas pocas apuestas grandes. No es lo",
+                "      mismo que la estrategia gane que que acertase donde apostó fuerte.",
             ]
         if self.unevaluable_gates:
             lines += [

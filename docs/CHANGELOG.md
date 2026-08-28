@@ -4,6 +4,101 @@ Decisiones y cambios con consecuencias. No se documenta lo trivial.
 
 ---
 
+## Phase 2b — El abridor no aporta, y ahora se sabe por qué
+
+**Estado:** completada. 870 tests, `ruff` y `mypy --strict` limpios. Detalle en
+[`PITCHERS.md`](PITCHERS.md).
+
+### El resultado
+
+La calidad del lanzador abridor —el factor dominante de MLB— **predice de sobra
+por su cuenta** y **no añade nada** sobre el precio de apertura.
+
+| ajuste (train 2011-2018, n=18.147) | market_logit | elo_diff | starter_advantage |
+|---|---|---|---|
+| con mercado | +1,0141 | −0,0000 | **+0,0166** |
+| sin mercado | — | +0,0049 | **+0,2545** |
+
+Factor 15. Y con el mercado dentro, `market_logit` sale en +1,0141: el modelo
+literalmente reproduce el mercado. La mejora de Brier es **+0,00001 en train**
+—en muestra, con los coeficientes ajustados sobre esos mismos partidos— y
++0,00003 en holdout.
+
+### Por qué este experimento vale más que un resultado negativo
+
+Un coeficiente ~0 **con** el mercado dentro admite dos lecturas opuestas: que la
+feature no vale nada, o que el mercado ya la contiene. Son conclusiones
+contrarias —una dice tirar la feature, la otra dice que la feature es buena y hay
+que buscar dónde el mercado tarda en incorporarla—. `fit(rows, use=...)` las
+separa ajustando sin el mercado, y la respuesta es inequívoca: **la feature es
+buena, el mercado se le adelantó**.
+
+Que la feature es buena no se deduce solo del coeficiente. Se validó contra la
+historia real: los diez mejores de 2011-2016 con ≥100 aperturas salen Kershaw
+(primero y por un abismo), Strasburg, Sale, Cliff Lee, Kluber, Bumgarner,
+Wainwright, Price, Félix Hernández y Scherzer. Un FIP con el signo invertido
+pasaría todos los tests sintéticos y daría un ranking absurdo; este test lo caza.
+
+### El +2,04% de ROI en holdout, y lo que destapó investigarlo
+
+El único número positivo de la tabla, sobre 2.206 apuestas. Cinco razones
+independientes para descartarlo: el signo se da la vuelta respecto a train
+(−4,10% sobre 6.175), no es significativo (t = −0,93), bate al cierre solo el
+40,9% con CLV medio −0,58%, su Brier es peor que el del mercado, y el retorno
+medio por apuesta es de signo contrario al ROI.
+
+Esa última discrepancia era un hueco del propio informe. **ROI y retorno medio
+son cantidades distintas**: el ROI pondera por stake y el retorno medio no, así
+que con Kelly pueden discrepar hasta en el signo — y aquí lo hacen (+2,04% frente
+a −2,33%). El agregado positivo lo decidían unas pocas apuestas grandes mientras
+la apuesta típica perdía. No es un error de cálculo, pero sí es la diferencia
+entre "esta estrategia gana" y "esta estrategia acertó donde apostó fuerte".
+`BettingPerformance` reporta ahora las dos cifras y avisa cuando el signo
+discrepa. Reportar solo el ROI habría contado la historia al revés.
+
+### Decisiones de datos
+
+**Game log, no total de temporada.** El total es veinte veces más barato y
+completamente inservible: incluye los partidos que se están prediciendo. Son
+~3.400 peticiones contra la API oficial, gratuita y sin key.
+
+**FIP en vez de ERA**, porque solo usa lo que el lanzador controla y por eso se
+estabiliza antes. Encogido hacia la media de liga en proporción a la muestra, con
+esa media también point-in-time.
+
+**El cruce va por (fecha, equipos, marcador)** y alcanza el 99,7%. El marcador no
+es decorativo: 341 partidos son dobles jornadas y sin él los dos partidos del día
+entre los mismos equipos son indistinguibles. Por debajo del 90% de cruce el
+experimento aborta — comparar modelos sobre submuestras distintas no compara
+nada.
+
+**Una ausencia nunca se rellena con un cero.** Un 0 en `starter_advantage`
+significa "los dos abridores son igual de buenos", que no es lo mismo que "no sé
+quién lanza".
+
+**La trampa de las entradas queda cerrada con tests.** `"6.1"` no es 6,1
+entradas: son 6 entradas y 1 out, 19 outs. La notación parece decimal y no lo es.
+
+**El histórico de lanzadores sí se commitea** (1,1 MB), al revés que el de odds:
+viene de la API oficial de MLB, sin restricción de licencia, y reconstruirlo es
+media hora. Commitearlo hace que el experimento se reproduzca en segundos.
+
+### Lo que esto cambia en el proyecto
+
+**El edge de modelo en el moneyline de MLB está a efectos prácticos agotado.** No
+por falta de datos: con el factor dominante medido correctamente, la mejora es de
+la quinta cifra decimal. Añadir bullpen, parque o alineación son mejoras
+marginales sobre un dominante que no mueve la aguja; hacerlo esperando otro
+resultado sería insistir, no experimentar.
+
+Lo que queda abierto es el **edge estructural** —comparar precios entre casas—,
+que ningún histórico de consenso puede medir y que solo valida la captura en
+vivo; y **mercados menos eficientes** que el moneyline de MLB, que es de los más
+líquidos y mejor precificados que existen. Esta fase lo ha medido en vez de
+suponerlo.
+
+---
+
 ## Phase 3 — Backtesting engine: el mercado gana
 
 **Estado:** completada. 784 tests, `ruff` y `mypy --strict` limpios. Detalle en

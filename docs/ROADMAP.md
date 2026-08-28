@@ -248,7 +248,7 @@ consulta concreta.
 |---|---|
 | ~~D3 motor de BD~~ | ✅ resuelto: SQLite + WAL tras SQLAlchemy + Alembic |
 | D5 books objetivo | Phase 2a — define qué books entran en el consenso sharp |
-| D2 fuente de stats MLB | Phase 2b |
+| ~~D2 fuente de stats MLB~~ | ✅ resuelta: MLB Stats API, game log por lanzador |
 | D4 definición de unit | Phase 4 |
 | ~~D1 histórico de odds~~ | ✅ resuelto: archivo público de SBR reparado, 2011-2021, sin coste |
 

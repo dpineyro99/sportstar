@@ -61,10 +61,33 @@ class BettingPerformance:
     max_drawdown_units: float
     beat_close_rate: float
     mean_clv: float
+    #: Media **sin ponderar** del retorno por unidad apostada. No es el ROI: el
+    #: ROI pondera por stake, así que con Kelly —donde cada apuesta lleva un
+    #: tamaño distinto— las dos cifras pueden discrepar, y pueden hacerlo hasta
+    #: en el signo. Ver `stake_concentration_warning`.
+    mean_return: float = 0.0
 
     @property
     def roi(self) -> float:
+        """Beneficio sobre lo apostado. Ponderado por stake, por definición."""
         return self.units_profit / self.units_staked if self.units_staked else 0.0
+
+    @property
+    def stake_concentration_warning(self) -> bool:
+        """`True` si el ROI y el retorno medio discrepan en el signo.
+
+        Cuando pasa, el ROI agregado lo están decidiendo unas pocas apuestas
+        grandes: la apuesta típica pierde y el total gana, o al revés. No es un
+        error de cálculo —son dos cantidades distintas— pero sí es la diferencia
+        entre "esta estrategia gana" y "esta estrategia acertó donde apostó
+        fuerte", que no es lo mismo y no se repite igual.
+
+        Se midió de verdad: en el holdout 2019-2021 la estrategia sin mercado dio
+        ROI +2,04% con retorno medio -2,33%.
+        """
+        if not self.n_bets:
+            return False
+        return (self.roi > 0) != (self.mean_return > 0)
 
     @property
     def win_rate(self) -> float:
@@ -127,10 +150,11 @@ def betting_performance(candidates: Sequence[Candidate]) -> BettingPerformance:
     """Evalúa solo lo que el filtro recomendó."""
     bets = [c for c in candidates if c.is_recommended]
     if not bets:
-        return BettingPerformance(0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        return BettingPerformance(0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
     profits = [c.profit_units for c in bets]
     staked = sum(c.stake.units for c in bets)
+    returns = [c.profit_units / c.stake.units for c in bets]
     return BettingPerformance(
         n_bets=len(bets),
         wins=sum(c.won for c in bets),
@@ -141,6 +165,7 @@ def betting_performance(candidates: Sequence[Candidate]) -> BettingPerformance:
         max_drawdown_units=_drawdown(profits),
         beat_close_rate=sum(c.beat_close for c in bets) / len(bets),
         mean_clv=sum(c.clv for c in bets) / len(bets),
+        mean_return=sum(returns) / len(returns),
     )
 
 

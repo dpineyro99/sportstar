@@ -2,7 +2,8 @@
 
 > **Estado a fecha de hoy: ninguno desplegado.** El único que sobrevive a la
 > evaluación es `market_consensus_v1`, que por construcción no recomienda nada.
-> Ver [`BACKTESTING.md`](BACKTESTING.md) para los números.
+> Ver [`BACKTESTING.md`](BACKTESTING.md) y [`PITCHERS.md`](PITCHERS.md) para los
+> números.
 
 ---
 
@@ -83,23 +84,48 @@ pesos distintos son dos modelos distintos, no una configuración del mismo.
 
 ---
 
-## 4. Por qué ninguno funciona, y qué haría falta
+### `market_plus_v1-pitchers`
 
-Elo solo sabe quién ganó. En MLB eso es una fracción pequeña de lo que determina
-un partido, y el mercado ya la tiene incorporada mucho antes de la apertura.
+Regresión logística sobre `logit(mercado)`, `elo_diff` y `ventaja_abridor` (FIP
+encogido del abridor local menos el del visitante). Coeficientes ajustados una
+sola vez sobre train y congelados. Detalle completo en
+[`PITCHERS.md`](PITCHERS.md).
 
-Lo que falta, por orden de impacto esperado:
+**Veredicto: no aporta, y ahora se sabe por qué.**
 
-1. **Lanzador abridor.** Es el factor dominante y el modelo no lo ve en absoluto.
-   Un mismo equipo con dos abridores distintos es, a efectos de mercado, dos
-   equipos distintos.
-2. **Bullpen** — disponibilidad y carga reciente.
-3. **Parque** — factores de carrera por estadio.
-4. **Alineación** — quién juega de verdad, no la plantilla.
+| ajuste | market_logit | elo_diff | starter_advantage |
+|---|---|---|---|
+| con mercado | +1,0141 | −0,0000 | **+0,0166** |
+| sin mercado | — | +0,0049 | **+0,2545** |
 
-Nada de esto está en el archivo histórico de odds; requiere endpoints
-adicionales de la MLB Stats API. Es el contenido de Phase 2b.
+La ventaja del abridor **predice de sobra por su cuenta** y su peso se desploma
+un factor 15 cuando el mercado entra en el modelo. No es que la feature sea mala
+—se validó contra la historia real y produce a Kershaw primero de su época por un
+abismo—: es que **el mercado ya la contiene**.
 
-**Hasta entonces, la respuesta honesta a "¿qué modelo desplegamos?" es
-"ninguno".** Desplegar `elo_v1` sabiendo que pierde un 4,66% no sería un
-experimento, sería pagar por confirmarlo.
+Mejora sobre el mercado: **+0,00001 en train** (y eso en muestra, con los
+coeficientes ajustados sobre esos mismos partidos) y +0,00003 en holdout. Queda
+más cerca del cierre el 46,5% de las veces, por debajo del 50% que haría falta.
+
+---
+
+## 4. Por qué ninguno funciona
+
+Elo solo sabe quién ganó, y el mercado ya lo tiene. Esa parte se sabía desde
+Phase 3.
+
+Lo nuevo de Phase 2b es que **el factor dominante de MLB tampoco aporta**. Se
+midió el lanzador abridor —el que separa a dos versiones del mismo equipo— con
+una feature que funciona y está validada, y el mercado ya lo llevaba incorporado
+antes de abrir la línea.
+
+Lo que quedaría por añadir —bullpen, parque, alineación— son mejoras marginales
+**sobre** el factor dominante. Si el dominante no mueve la aguja, no hay razón
+para esperar que las marginales lo hagan, y añadirlas esperando otro resultado
+sería insistir, no experimentar.
+
+**La respuesta honesta a "¿qué modelo desplegamos?" sigue siendo "ninguno", y
+ahora con el diagnóstico cerrado:** el edge de modelo en el moneyline de MLB está
+a efectos prácticos agotado. Lo que queda abierto es el **edge estructural**
+—comparar precios entre casas—, que ningún histórico de consenso puede medir y
+que solo valida la captura en vivo.
