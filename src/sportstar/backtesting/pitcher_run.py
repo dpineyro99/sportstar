@@ -56,6 +56,7 @@ class PitcherBacktest:
 
     join: JoinResult
     coefficients: Coefficients
+    coefficients_without_market: Coefficients
     train_rows: int
     train_skipped: int
     train: list[Comparison]
@@ -98,8 +99,14 @@ def run(use_test_set: bool = False, *, ledger: HoldoutLedger | None = None) -> i
 
     rows = build_rows(split.train, pitchers.appearances)
     coefficients = fit(rows)
+    # El mismo ajuste sin el mercado. Es el diagnóstico que separa "la feature no
+    # vale nada" de "el mercado ya la tenía": si aquí sí predice, es buena y el
+    # mercado se le adelantó.
+    without_market = fit(rows, use=("elo_diff", "starter_advantage"))
+
     print("=== coeficientes ajustados sobre train ===")
-    print(f"  {coefficients.explain()}")
+    print(f"  con mercado : {coefficients.explain()}")
+    print(f"  sin mercado : {without_market.explain()}")
     print(f"  filas descartadas por features incompletas: {rows.n_skipped}")
     print()
 
@@ -107,6 +114,7 @@ def run(use_test_set: bool = False, *, ledger: HoldoutLedger | None = None) -> i
         return [
             MarketConsensus(),
             MarketPlusCorrections(coefficients, pitchers.appearances, version="v1-pitchers"),
+            MarketPlusCorrections(without_market, pitchers.appearances, version="v1-sin-mercado"),
         ]
 
     def evaluate(subset: list[HistoricalGame]) -> list[Comparison]:

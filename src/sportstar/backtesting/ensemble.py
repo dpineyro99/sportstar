@@ -197,11 +197,21 @@ class Coefficients:
         return f"n={self.n_train}   " + "   ".join(parts)
 
     def predict(self, vector: list[float]) -> float:
-        total = self.intercept + sum(w * x for w, x in zip(self.weights, vector, strict=True))
+        """`vector` viene siempre completo, en el orden de `FEATURE_NAMES`.
+
+        Se seleccionan aquí las columnas que este ajuste usa, para que quien
+        construye el vector no tenga que saber con qué subconjunto se entrenó.
+        """
+        columns = [FEATURE_NAMES.index(name) for name in self.names]
+        total = self.intercept + sum(
+            w * vector[i] for w, i in zip(self.weights, columns, strict=True)
+        )
         return _sigmoid(total)
 
 
-def fit(rows: TrainingRows, *, C: float = 1.0) -> Coefficients:
+def fit(
+    rows: TrainingRows, *, C: float = 1.0, use: tuple[str, ...] = FEATURE_NAMES
+) -> Coefficients:
     """Ajusta la logística. Sin estandarizar: los coeficientes se leen en crudo.
 
     Estandarizar mejoraría el condicionamiento pero haría los coeficientes
@@ -209,17 +219,32 @@ def fit(rows: TrainingRows, *, C: float = 1.0) -> Coefficients:
     es si `starter_advantage` pesa algo, no cuánto pesa una versión escalada de
     ella. La regularización L2 se queda porque el coste de un coeficiente inflado
     en este dominio es un stake inflado.
+
+    `use` permite ajustar sobre un subconjunto de features, y sirve para el
+    diagnóstico que de verdad importa. Un coeficiente ~0 sobre
+    `starter_advantage` **con** el mercado dentro admite dos lecturas muy
+    distintas: que la feature no vale nada, o que el mercado ya la contiene. Se
+    distinguen ajustando sin el mercado: si ahí sí predice, la feature es buena y
+    el mercado se le adelantó.
     """
     from sklearn.linear_model import LogisticRegression
 
     if not rows.labels:
         raise ValueError("no se puede ajustar sin filas")
 
+    unknown = set(use) - set(FEATURE_NAMES)
+    if unknown:
+        raise ValueError(f"features desconocidas: {sorted(unknown)}")
+
+    columns = [FEATURE_NAMES.index(name) for name in use]
+    features = [[row[i] for i in columns] for row in rows.features]
+
     model: Any = LogisticRegression(C=C, max_iter=1000)
-    model.fit(rows.features, rows.labels)
+    model.fit(features, rows.labels)
     return Coefficients(
         intercept=float(model.intercept_[0]),
         weights=tuple(float(w) for w in model.coef_[0]),
+        names=use,
         n_train=len(rows),
     )
 

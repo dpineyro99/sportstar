@@ -147,3 +147,75 @@ def test_las_apariciones_de_relevo_tambien_cuentan_para_la_liga() -> None:
     assert form.league_fip_core is not None
     assert form.totals[1].starts == 0
     assert form.batters_faced(1) == 10
+
+
+class TestContraLaHistoriaReal:
+    """Validez aparente sobre el histórico descargado, 2011-2016.
+
+    Un FIP con el signo invertido, un encogimiento mal puesto o la trampa de las
+    entradas mal resuelta pasarían todos los tests sintéticos de arriba y aun así
+    producirían un ranking absurdo. Este test comprueba que los nombres que salen
+    son los que cualquiera diría — que es la única forma de cazar un error que es
+    coherente consigo mismo.
+    """
+
+    SEASONS = range(2011, 2017)
+    MIN_STARTS = 100
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def form(cls) -> PitcherForm:
+        from sportstar.pitchers import DEFAULT_CACHE, load
+
+        if not (DEFAULT_CACHE / "appearances_2011.json.gz").exists():
+            pytest.skip("sin histórico de lanzadores descargado")
+        history = load(cls.SEASONS)
+        form = PitcherForm()
+        form.observe_all(sorted(history.appearances, key=lambda a: a.game_date))
+        return form
+
+    def _ranked(self, form: PitcherForm) -> list[tuple[int, float]]:
+        rated = [
+            (pid, rating)
+            for pid in form.totals
+            if form.totals[pid].starts >= self.MIN_STARTS
+            and (rating := form.rating(pid)) is not None
+        ]
+        return sorted(rated, key=lambda pair: pair[1])
+
+    def test_kershaw_es_el_mejor_de_su_epoca(self, form: PitcherForm) -> None:
+        """Tres Cy Young entre 2011 y 2014. Si no sale primero, algo está al revés."""
+        assert self._ranked(form)[0][0] == 477132  # Clayton Kershaw
+
+    def test_los_diez_mejores_son_los_que_uno_diria(self, form: PitcherForm) -> None:
+        best = {pid for pid, _ in self._ranked(form)[:10]}
+        expected = {
+            477132,  # Kershaw
+            544931,  # Strasburg
+            519242,  # Sale
+            424324,  # Cliff Lee
+            446372,  # Kluber
+            518516,  # Bumgarner
+            425794,  # Wainwright
+            456034,  # Price
+            433587,  # Félix Hernández
+            453286,  # Scherzer
+        }
+        assert best == expected
+
+    def test_menor_es_mejor(self, form: PitcherForm) -> None:
+        """El signo del FIP. Invertirlo daría un ranking perfectamente invertido."""
+        ranked = self._ranked(form)
+        assert ranked[0][1] < ranked[-1][1]
+
+    def test_la_media_de_liga_cae_donde_debe(self, form: PitcherForm) -> None:
+        league = form.league_fip_core
+        assert league is not None
+        # El núcleo del FIP sin la constante ronda 0,8 en esta época.
+        assert 0.5 < league < 1.2
+
+    def test_los_mejores_estan_por_debajo_de_la_liga(self, form: PitcherForm) -> None:
+        league = form.league_fip_core
+        assert league is not None
+        ranked = self._ranked(form)
+        assert ranked[0][1] < league < ranked[-1][1]

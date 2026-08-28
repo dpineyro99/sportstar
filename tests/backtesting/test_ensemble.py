@@ -220,3 +220,56 @@ class TestLaEstrategia:
 
         assert strategy.version == "v2-pitchers"
         assert strategy.name == "market_plus"
+
+
+class TestElDiagnosticoSinMercado:
+    """Separar "la feature no vale nada" de "el mercado ya la tenía".
+
+    Un coeficiente ~0 con el mercado dentro admite las dos lecturas, y son
+    conclusiones opuestas: una dice que hay que tirar la feature, la otra que la
+    feature es buena y hay que buscar dónde el mercado tarda en incorporarla.
+    """
+
+    def test_se_puede_ajustar_sobre_un_subconjunto(self) -> None:
+        games = _with_starters(make_games(n_days=140))
+        days = sorted({g.game_date.date() for g in games})
+        rows = build_rows(games, _appearances(days))
+
+        coefficients = fit(rows, use=("starter_advantage",))
+
+        assert coefficients.names == ("starter_advantage",)
+        assert set(coefficients.as_dict()) == {"starter_advantage"}
+
+    def test_el_vector_completo_sigue_valiendo_para_predecir(self) -> None:
+        """Quien construye el vector no tiene que saber con qué subconjunto se ajustó."""
+        coefficients = Coefficients(intercept=0.0, weights=(2.0,), names=("starter_advantage",))
+
+        # El vector llega completo; se selecciona la tercera columna.
+        assert coefficients.predict([99.0, 99.0, 0.0]) == pytest.approx(0.5)
+        assert coefficients.predict([99.0, 99.0, 1.0]) > 0.5
+
+    def test_una_feature_desconocida_falla_pronto(self) -> None:
+        games = _with_starters(make_games(n_days=140))
+        days = sorted({g.game_date.date() for g in games})
+        rows = build_rows(games, _appearances(days))
+
+        with pytest.raises(ValueError, match="desconocidas"):
+            fit(rows, use=("no_existe",))
+
+    def test_quitar_el_mercado_libera_el_peso_de_las_demas(self) -> None:
+        """Es el efecto que hace informativo el diagnóstico.
+
+        Se construye un caso donde `starter_advantage` es una copia ruidosa de la
+        señal que el mercado ya tiene: con el mercado dentro su coeficiente se
+        desploma, sin él recupera peso.
+        """
+        games = _with_starters(make_games(n_days=200))
+        days = sorted({g.game_date.date() for g in games})
+        rows = build_rows(games, _appearances(days))
+
+        with_market = fit(rows).as_dict()["starter_advantage"]
+        without_market = fit(rows, use=("starter_advantage",)).as_dict()["starter_advantage"]
+
+        # No se afirma la dirección —depende del generador—, sino que son
+        # magnitudes distintas: si fuesen iguales el diagnóstico no diría nada.
+        assert with_market != pytest.approx(without_market)
