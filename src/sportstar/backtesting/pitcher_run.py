@@ -19,15 +19,13 @@ mercado ya tenía esa información y no hay nada que rascar por ahí.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from ..data.providers.mlb_stats_api import MlbStatsApiProvider
 from ..odds_history import load as load_odds
 from ..pitchers import PitcherHistory
 from ..pitchers import load as load_pitchers
 from .dataset import HistoricalGame, to_historical_games
 from .engine import run_backtest
-from .ensemble import Coefficients, MarketPlusCorrections, build_rows, fit
+from .ensemble import MarketPlusCorrections, build_rows, fit
 from .pitcher_join import JoinResult, enrich, join_starters, team_id_map
 from .run import Comparison, _print_blocked, _table, blocked, compare
 from .splits import DEFAULT_TEST, DEFAULT_TRAIN, HoldoutLedger, Split, temporal_split
@@ -48,19 +46,6 @@ def club_ids(provider: MlbStatsApiProvider | None = None) -> dict[str, int]:
         for team in teams
         if isinstance(team, dict) and "clubName" in team and "id" in team
     }
-
-
-@dataclass(frozen=True, slots=True)
-class PitcherBacktest:
-    """Todo lo que produce el experimento, incluida la evidencia del cruce."""
-
-    join: JoinResult
-    coefficients: Coefficients
-    coefficients_without_market: Coefficients
-    train_rows: int
-    train_skipped: int
-    train: list[Comparison]
-    test: list[Comparison] | None = None
 
 
 def prepare(
