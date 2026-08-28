@@ -79,6 +79,12 @@ class HistoricalGame:
     away_score: int
     home: MarketPrices
     away: MarketPrices
+    #: Abridores previstos, cuando el cruce con la MLB Stats API los encontró.
+    #: `None` significa "no se sabe", nunca "no hay": la diferencia importa,
+    #: porque un modelo que trate el desconocimiento como un valor neutro está
+    #: inventando información.
+    home_pitcher_id: int | None = None
+    away_pitcher_id: int | None = None
     #: Ordinal dentro de (fecha, local, visitante). **No es el número de partido
     #: oficial de MLB**: el archivo no lo trae, y su orden no coincide
     #: necesariamente con el de la liga —comprobado en la doble jornada del
@@ -86,6 +92,10 @@ class HistoricalGame:
     #: Solo sirve para distinguir las dos mitades de una doble jornada, que es
     #: para lo que se usa: sin él, 341 pares de partidos reales colapsan en uno.
     archive_sequence: int = 1
+
+    @property
+    def has_starters(self) -> bool:
+        return self.home_pitcher_id is not None and self.away_pitcher_id is not None
 
     @property
     def decided_at(self) -> datetime:

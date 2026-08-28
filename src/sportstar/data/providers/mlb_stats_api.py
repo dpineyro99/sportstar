@@ -72,3 +72,29 @@ class MlbStatsApiProvider:
         return RawFetch.from_response(
             response, provider=self.provider_key, endpoint="/teams", sport_key="mlb"
         )
+
+    def fetch_pitcher_game_log(self, pitcher_id: int, season: int) -> RawFetch:
+        """Todas las apariciones de un lanzador en una temporada.
+
+        Es la fuente de las features de lanzador **sin leakage**. La alternativa
+        obvia —`stats=season`, un total por temporada— es mucho más barata y
+        completamente inservible para un backtest: el total de una temporada
+        incluye los partidos que se están prediciendo. Con el game log se puede
+        reconstruir qué se sabía de un lanzador **antes** de cada apertura, que es
+        lo único que se puede usar.
+
+        Cuesta una petición por (lanzador, temporada). Son ~310 abridores por
+        temporada, así que once temporadas son ~3.400 peticiones contra una API
+        gratuita y sin key: aceptable una vez, no en cada arranque. De ahí la
+        caché en disco.
+        """
+        response = self._client.get(
+            f"{BASE_URL}/people/{pitcher_id}/stats",
+            params={"stats": "gameLog", "group": "pitching", "season": season},
+        )
+        return RawFetch.from_response(
+            response,
+            provider=self.provider_key,
+            endpoint=f"/people/{pitcher_id}/stats",
+            sport_key="mlb",
+        )

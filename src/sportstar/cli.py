@@ -15,6 +15,7 @@ from alembic import command
 from alembic.config import Config
 
 from .backfill import run_backfill
+from .backtesting.pitcher_run import run as run_pitcher_backtest
 from .backtesting.run import run as run_backtest_cmd
 from .capture import run_capture
 from .db.catalog import League, Sport, Sportsbook, Team
@@ -22,6 +23,7 @@ from .db.session import create_db_engine, create_session_factory, database_url, 
 from .demo import run_demo
 from .health import persist_report, run_checks
 from .odds_history import run as run_odds_history
+from .pitchers import run as run_pitchers
 from .seeds import seed_catalog
 from .sync import run_sync
 
@@ -134,6 +136,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="evalúa también el test set. Queda anotado: cada uso lo acerca a ser train.",
     )
+    sub.add_parser("pitchers", help="descarga y cachea el histórico de lanzadores (2011-2021)")
+    pitcher_backtest = sub.add_parser(
+        "backtest-pitchers",
+        help="¿aporta el abridor algo que el mercado no tenga ya?",
+    )
+    pitcher_backtest.add_argument(
+        "--test",
+        action="store_true",
+        help="evalúa también el holdout. Queda anotado.",
+    )
     backfill = sub.add_parser("backfill", help="descarga histórico de MLB a data/raw/")
     backfill.add_argument("--start", required=True, help="fecha inicial (YYYY-MM-DD)")
     backfill.add_argument("--end", required=True, help="fecha final (YYYY-MM-DD)")
@@ -143,6 +155,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_backfill(args)
     if args.command == "backtest":
         return run_backtest_cmd(use_test_set=args.test)
+    if args.command == "backtest-pitchers":
+        return run_pitcher_backtest(use_test_set=args.test)
 
     commands = {
         "init": cmd_init,
@@ -153,6 +167,7 @@ def main(argv: list[str] | None = None) -> int:
         "sync": run_sync,
         "health": cmd_health,
         "odds-history": run_odds_history,
+        "pitchers": run_pitchers,
         "serve": cmd_serve,
     }
     return commands[args.command]()
