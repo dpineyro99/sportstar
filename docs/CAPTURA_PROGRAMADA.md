@@ -1,5 +1,28 @@
 # Captura programada del mercado
 
+## Estado: NUNCA HA CORRIDO
+
+> Comprobado el 2026-10-07 contra GitHub: **42 workflow runs, todos `CI`, cero
+> eventos `schedule`.** En disco hay 2 snapshots de un solo día, del 2026-08-23,
+> tomados a mano desde una sesión.
+
+Dos causas, las dos pendientes de una acción manual:
+
+1. **`main` solo contiene un `README.md`.** Todo el proyecto vive en la rama
+   `claude/sports-betting-intelligence-audit-6n7fjd`, y GitHub solo dispara
+   `schedule` desde la rama por defecto. Mientras `sync.yml` no esté en `main`, el
+   cron es decorativo.
+2. **El secreto `SPORTSTAR_ODDS_API_KEY` no está configurado.**
+
+Hasta que las dos se resuelvan, **el edge estructural no se puede medir** —y es la
+única fuente de edge que queda abierta tras Phase 3 y Phase 2b—. Cada día que
+pasa es closing line que no vuelve.
+
+Esto estuvo mal documentado durante varias fases: `ROADMAP.md`, `PITCHERS.md` y
+`ODDS_HISTORY.md` describían la captura como si estuviese corriendo. Corregido, y
+anotado aquí porque un supuesto que nadie comprueba se convierte en un hecho
+falso en tres documentos.
+
 ## Por qué existe
 
 Con una sola jornada de datos medí 28 observaciones de edge estructural, cero por

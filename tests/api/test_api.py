@@ -153,6 +153,21 @@ class TestPerformance:
         for window in ("7d", "30d", "90d", "all"):
             assert client.get(f"/v1/performance?window={window}").status_code == 200
 
+    def test_the_fixture_stays_inside_every_window(self, client: TestClient) -> None:
+        """El fixture se ancla al reloj real, y tiene que seguir haciéndolo.
+
+        La API filtra por ventanas móviles, así que un fixture clavado en una
+        fecha absoluta caduca: pasa el día que se escribe y falla semanas después
+        sin que nadie toque el código. Ocurrió — `tests/api/conftest.py` decía
+        `datetime(2026, 8, 19)` y este bloque empezó a fallar a los 49 días.
+
+        Si alguien vuelve a fijar la fecha, la ventana más corta es la primera en
+        dejar de ver los datos, y este test lo dice.
+        """
+        for window in ("7d", "30d", "90d", "all"):
+            body = client.get(f"/v1/performance?window={window}").json()
+            assert body["n_candidates"] == 2, f"ventana {window} no ve el fixture"
+
 
 class TestModels:
     def test_lists_the_registered_model(self, client: TestClient) -> None:

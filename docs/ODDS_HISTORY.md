@@ -184,8 +184,9 @@ apuestas mínimo, 5.000 para creerse un ROI).
 
 **No cambia:** sigue sin haber precios por casa, así que el **edge estructural
 —comparar casas para encontrar el mejor precio— no se puede backtestear con
-esto**. Esa parte del sistema solo se puede validar con la captura propia que ya
-está corriendo cada hora. Son dos fuentes de edge distintas y solo una queda
+esto**. Esa parte del sistema solo se puede validar con la captura propia, que
+**aún no ha corrido**: ver [`CAPTURA_PROGRAMADA.md`](CAPTURA_PROGRAMADA.md)
+§Estado. Son dos fuentes de edge distintas y solo una queda
 desbloqueada.
 
 Y sigue sin haber datos de lanzador abridor, que es el factor dominante en MLB.

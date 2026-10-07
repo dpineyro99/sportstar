@@ -121,7 +121,8 @@ resultado pasa una auditoría bloqueante de cuatro checks. Ver
 Ojo con el alcance: ese histórico es de **consenso, sin identificar la casa**, así
 que sirve para backtestear el edge de modelo y para calibrar, pero **no** para el
 edge estructural —comparar precios entre casas—, que solo se puede validar con la
-captura propia que corre cada hora desde Phase 2a.
+captura propia —que **todavía no ha corrido ni una vez**; ver
+[`CAPTURA_PROGRAMADA.md`](CAPTURA_PROGRAMADA.md) §Estado—.
 
 - Replay point-in-time: reconstruye el estado del mundo en `T` y ejecuta el pipeline.
 - **Evaluación contra el cierre sobre todos los candidates**, no solo sobre apuestas

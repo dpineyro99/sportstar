@@ -25,6 +25,7 @@ from .health import persist_report, run_checks
 from .odds_history import run as run_odds_history
 from .pitchers import run as run_pitchers
 from .seeds import seed_catalog
+from .structural import run as run_structural
 from .sync import run_sync
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -137,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
         help="evalúa también el test set. Queda anotado: cada uso lo acerca a ser train.",
     )
     sub.add_parser("pitchers", help="descarga y cachea el histórico de lanzadores (2011-2021)")
+    sub.add_parser("structural", help="mide el edge estructural del slate actual")
     pitcher_backtest = sub.add_parser(
         "backtest-pitchers",
         help="¿aporta el abridor algo que el mercado no tenga ya?",
@@ -168,6 +170,7 @@ def main(argv: list[str] | None = None) -> int:
         "health": cmd_health,
         "odds-history": run_odds_history,
         "pitchers": run_pitchers,
+        "structural": run_structural,
         "serve": cmd_serve,
     }
     return commands[args.command]()

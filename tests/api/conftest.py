@@ -28,7 +28,15 @@ from sportstar.odds import (
 from sportstar.pipeline import evaluate_market, persist_evaluations
 from sportstar.seeds import seed_catalog
 
-NOW = datetime(2026, 8, 19, 18, 0, tzinfo=UTC)
+# Anclado al reloj real, no a una fecha fija. La API filtra por ventanas móviles
+# ("últimos 30 días"), así que un fixture clavado en una fecha absoluta **caduca**:
+# pasa el día que se escribe y falla semanas después sin que nadie toque el código.
+# Ocurrió de verdad — este fichero decía `datetime(2026, 8, 19)` y el test de
+# `n_candidates` empezó a fallar a los 49 días.
+#
+# Las relaciones entre instantes son lo que importa y se conservan intactas: todo
+# se construye como desplazamiento respecto a `NOW`.
+NOW = datetime.now(UTC).replace(microsecond=0) - timedelta(days=1)
 CAPTURED = NOW - timedelta(seconds=45)
 
 PRICES = [

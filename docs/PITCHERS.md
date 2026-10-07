@@ -224,8 +224,9 @@ buscar cambia:
 
 - **El edge estructural** —diferencias de precio entre casas para el mismo
   evento— es lo único que este histórico no puede medir, porque es de consenso y
-  no identifica la casa. Es lo que la captura horaria lleva acumulando desde
-  Phase 2a, y ahora es la única vía abierta.
+  no identifica la casa. Es la única vía abierta — y está **bloqueada por una
+  captura que nunca ha corrido**: ver
+  [`CAPTURA_PROGRAMADA.md`](CAPTURA_PROGRAMADA.md) §Estado.
 - **Mercados menos eficientes** que el moneyline de MLB: props, ligas menores,
   deportes con menos volumen. El moneyline de un partido de MLB es de los
   mercados más líquidos y mejor precificados que existen, y esta fase lo ha
