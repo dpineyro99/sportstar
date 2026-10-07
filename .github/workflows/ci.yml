@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check src tests
+      - name: Format check
+        run: ruff format --check src tests
+      - name: Types
+        run: mypy
+      - name: Tests (núcleo matemático)
+        # El núcleo es la única parte donde un bug no lanza excepción: contamina
+        # en silencio cada número aguas abajo. De ahí el umbral más alto.
+        run: |
+          pytest -q \
+            --cov=sportstar.core --cov=sportstar.validation \
+            --cov-report=term-missing --cov-fail-under=95
+      - name: Tests (paquete completo)
+        run: |
+          pytest -q --cov=sportstar --cov-report=term-missing --cov-fail-under=90
+      - name: API arranca
+        env:
+          SPORTSTAR_DATABASE_URL: sqlite:///api-smoke.db
+        run: |
+          alembic upgrade head
+          python -c "
+          from fastapi.testclient import TestClient
+          from sportstar.api import app
+          r = TestClient(app).get('/v1/health')
+          assert r.status_code == 200, r.text
+          print('API ok')
+          "
+      - name: Migrations round-trip
+        env:
+          SPORTSTAR_DATABASE_URL: sqlite:///ci.db
+        run: |
+          alembic upgrade head
+          alembic downgrade base

@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+*.db
+*.db-wal
+*.db-shm
+.env
+# El histórico descargado se commitea a propósito: es como viajan los datos
+# desde una máquina con red hasta el entorno de desarrollo, que no la tiene.
+!data/raw/
+
+# El archivo de SBR sí se queda fuera: son datos de un tercero sin licencia
+# explícita (el código del repositorio de origen es MIT, los datos no lo son).
+# Se descargan en tiempo de ejecución y se cachean, no se redistribuyen desde
+# aquí. `sportstar odds-history` los vuelve a traer en dos segundos.
+data/raw/odds_history/
+
+# El histórico de lanzadores SÍ se commitea, al revés que el de odds. Son ~1 MB
+# ya normalizado y comprimido, vienen de la API oficial de MLB —gratuita, sin key
+# y sin restricción de licencia—, y reconstruirlos son ~3.400 peticiones y media
+# hora. Commitearlos hace que el experimento se reproduzca en segundos en una
+# máquina limpia, que es justo lo que un backtest necesita.

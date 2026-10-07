@@ -1,0 +1,469 @@
+{
+  "copyright": "Copyright 2026 MLB Advanced Media, L.P.  Use of any content on this page acknowledges agreement to the terms posted here http://gdx.mlb.com/components/copyright.txt",
+  "totalItems": 9,
+  "totalEvents": 0,
+  "totalGames": 9,
+  "totalGamesInProgress": 0,
+  "dates": [
+    {
+      "date": "2026-08-20",
+      "totalItems": 9,
+      "totalEvents": 0,
+      "totalGames": 9,
+      "totalGamesInProgress": 0,
+      "games": [
+        {
+          "gamePk": 824474,
+          "gameGuid": "9911c036-7525-4a38-8b4d-2a7e18c4ffbb",
+          "link": "/api/v1.1/game/824474/feed/live",
+          "gameType": "R",
+          "season": "2026",
+          "gameDate": "2026-08-20T16:40:00Z",
+          "officialDate": "2026-08-20",
+          "status": {
+            "abstractGameState": "Final",
+            "codedGameState": "F",
+            "detailedState": "Final",
+            "statusCode": "F",
+            "startTimeTBD": false,
+            "abstractGameCode": "F"
+          },
+          "teams": {
+            "away": {
+              "team": {
+                "id": 138,
+                "name": "St. Louis Cardinals",
+                "abbreviation": "STL",
+                "teamName": "Cardinals",
+                "locationName": "St. Louis"
+              },
+              "leagueRecord": {
+                "wins": 66,
+                "losses": 63,
+                "ties": 0,
+                "pct": ".512"
+              },
+              "score": 10,
+              "isWinner": true,
+              "probablePitcher": {
+                "id": 700241,
+                "fullName": "Michael McGreevy",
+                "link": "/api/v1/people/700241"
+              },
+              "splitSquad": false,
+              "seriesNumber": 42
+            },
+            "home": {
+              "team": {
+                "id": 113,
+                "name": "Cincinnati Reds",
+                "abbreviation": "CIN",
+                "teamName": "Reds",
+                "locationName": "Cincinnati"
+              },
+              "leagueRecord": {
+                "wins": 61,
+                "losses": 67,
+                "ties": 0,
+                "pct": ".477"
+              },
+              "score": 9,
+              "isWinner": false,
+              "probablePitcher": {
+                "id": 663903,
+                "fullName": "Brady Singer",
+                "link": "/api/v1/people/663903"
+              },
+              "splitSquad": false,
+              "seriesNumber": 41
+            }
+          },
+          "venue": {
+            "id": 2602,
+            "name": "Great American Ball Park",
+            "link": "/api/v1/venues/2602"
+          },
+          "isTie": false,
+          "gameNumber": 1,
+          "publicFacing": true,
+          "doubleHeader": "N",
+          "dayNight": "day",
+          "scheduledInnings": 9,
+          "seriesDescription": "Regular Season"
+        },
+        {
+          "gamePk": 824395,
+          "gameDate": "2026-08-20T17:10:00Z",
+          "officialDate": "2026-08-20",
+          "status": {
+            "abstractGameState": "Final",
+            "detailedState": "Final"
+          },
+          "teams": {
+            "away": {
+              "team": {
+                "id": 137,
+                "name": "San Francisco Giants",
+                "abbreviation": "SF"
+              },
+              "score": 2,
+              "isWinner": false,
+              "probablePitcher": {
+                "id": 694738,
+                "fullName": "Landen Roupp"
+              }
+            },
+            "home": {
+              "team": {
+                "id": 114,
+                "name": "Cleveland Guardians",
+                "abbreviation": "CLE"
+              },
+              "score": 5,
+              "isWinner": true,
+              "probablePitcher": {
+                "id": 668909,
+                "fullName": "Gavin Williams"
+              }
+            }
+          },
+          "venue": {
+            "id": 5,
+            "name": "Progressive Field"
+          },
+          "gameNumber": 1,
+          "doubleHeader": "N",
+          "seriesDescription": "Regular Season"
+        },
+        {
+          "gamePk": 822934,
+          "gameDate": "2026-08-20T17:10:00Z",
+          "officialDate": "2026-08-20",
+          "status": {
+            "abstractGameState": "Final",
+            "detailedState": "Final"
+          },
+          "teams": {
+            "away": {
+              "team": {
+                "id": 141,
+                "name": "Toronto Blue Jays",
+                "abbreviation": "TOR"
+              },
+              "score": 5,
+              "isWinner": true,
+              "probablePitcher": {
+                "id": 669456,
+                "fullName": "Shane Bieber"
+              }
+            },
+            "home": {
+              "team": {
+                "id": 139,
+                "name": "Tampa Bay Rays",
+                "abbreviation": "TB"
+              },
+              "score": 1,
+              "isWinner": false,
+              "probablePitcher": {
+                "id": 693855,
+                "fullName": "Ian Seymour"
+              }
+            }
+          },
+          "venue": {
+            "id": 12,
+            "name": "Tropicana Field"
+          },
+          "gameNumber": 1,
+          "doubleHeader": "N",
+          "seriesDescription": "Regular Season"
+        },
+        {
+          "gamePk": 824074,
+          "gameDate": "2026-08-20T18:10:00Z",
+          "officialDate": "2026-08-20",
+          "status": {
+            "abstractGameState": "Final",
+            "detailedState": "Final"
+          },
+          "teams": {
+            "away": {
+              "team": {
+                "id": 133,
+                "name": "Athletics",
+                "abbreviation": "ATH",
+                "locationName": "Sacramento"
+              },
+              "score": 2,
+              "isWinner": false,
+              "probablePitcher": {
+                "id": 695611,
+                "fullName": "Gage Jump"
+              }
+            },
+            "home": {
+              "team": {
+                "id": 118,
+                "name": "Kansas City Royals",
+                "abbreviation": "KC"
+              },
+              "score": 6,
+              "isWinner": true,
+              "probablePitcher": {
+                "id": 677976,
+                "fullName": "Randy Dobnak"
+              }
+            }
+          },
+          "venue": {
+            "id": 7,
+            "name": "Kauffman Stadium"
+          },
+          "gameNumber": 1,
+          "doubleHeader": "N",
+          "seriesDescription": "Regular Season"
+        },
+        {
+          "gamePk": 824589,
+          "gameDate": "2026-08-20T18:10:00Z",
+          "officialDate": "2026-08-20",
+          "rescheduledFrom": "2026-06-11T23:40:00Z",
+          "rescheduledFromDate": "2026-06-11",
+          "status": {
+            "abstractGameState": "Final",
+            "detailedState": "Final"
+          },
+          "teams": {
+            "away": {
+              "team": {
+                "id": 144,
+                "name": "Atlanta Braves",
+                "abbreviation": "ATL"
+              },
+              "score": 2,
+              "isWinner": true,
+              "probablePitcher": {
+                "id": 656550,
+                "fullName": "Grant Holmes"
+              }
+            },
+            "home": {
+              "team": {
+                "id": 145,
+                "name": "Chicago White Sox",
+                "abbreviation": "CWS"
+              },
+              "score": 0,
+              "isWinner": false,
+              "probablePitcher": {
+                "id": 641743,
+                "fullName": "Anthony Kay"
+              }
+            }
+          },
+          "venue": {
+            "id": 4,
+            "name": "Rate Field"
+          },
+          "gameNumber": 1,
+          "doubleHeader": "N",
+          "description": "Makeup of 6/11 PPD",
+          "seriesDescription": "Regular Season"
+        },
+        {
+          "gamePk": 823747,
+          "gameDate": "2026-08-20T18:10:00Z",
+          "officialDate": "2026-08-20",
+          "status": {
+            "abstractGameState": "Final",
+            "detailedState": "Final"
+          },
+          "teams": {
+            "away": {
+              "team": {
+                "id": 136,
+                "name": "Seattle Mariners",
+                "abbreviation": "SEA"
+              },
+              "score": 4,
+              "isWinner": false,
+              "probablePitcher": {
+                "id": 669923,
+                "fullName": "George Kirby"
+              }
+            },
+            "home": {
+              "team": {
+                "id": 158,
+                "name": "Milwaukee Brewers",
+                "abbreviation": "MIL"
+              },
+              "score": 7,
+              "isWinner": true,
+              "probablePitcher": {
+                "id": 688107,
+                "fullName": "Robert Gasser"
+              }
+            }
+          },
+          "venue": {
+            "id": 32,
+            "name": "American Family Field"
+          },
+          "gameNumber": 1,
+          "doubleHeader": "N",
+          "seriesDescription": "Regular Season"
+        },
+        {
+          "gamePk": 824802,
+          "gameDate": "2026-08-20T22:35:00Z",
+          "officialDate": "2026-08-20",
+          "status": {
+            "abstractGameState": "Preview",
+            "codedGameState": "P",
+            "detailedState": "Pre-Game",
+            "statusCode": "P",
+            "startTimeTBD": false,
+            "abstractGameCode": "P"
+          },
+          "teams": {
+            "away": {
+              "team": {
+                "id": 147,
+                "name": "New York Yankees",
+                "abbreviation": "NYY",
+                "shortName": "NY Yankees"
+              },
+              "leagueRecord": {
+                "wins": 71,
+                "losses": 55,
+                "ties": 0,
+                "pct": ".563"
+              },
+              "score": 0,
+              "probablePitcher": {
+                "id": 543037,
+                "fullName": "Gerrit Cole"
+              }
+            },
+            "home": {
+              "team": {
+                "id": 110,
+                "name": "Baltimore Orioles",
+                "abbreviation": "BAL"
+              },
+              "leagueRecord": {
+                "wins": 61,
+                "losses": 66,
+                "ties": 0,
+                "pct": ".480"
+              },
+              "score": 0,
+              "probablePitcher": {
+                "id": 680694,
+                "fullName": "Kyle Bradish"
+              }
+            }
+          },
+          "venue": {
+            "id": 2,
+            "name": "Oriole Park at Camden Yards"
+          },
+          "gameNumber": 1,
+          "doubleHeader": "N",
+          "dayNight": "night",
+          "seriesDescription": "Regular Season"
+        },
+        {
+          "gamePk": 822861,
+          "gameDate": "2026-08-21T00:05:00Z",
+          "officialDate": "2026-08-20",
+          "status": {
+            "abstractGameState": "Preview",
+            "detailedState": "Pre-Game"
+          },
+          "teams": {
+            "away": {
+              "team": {
+                "id": 120,
+                "name": "Washington Nationals",
+                "abbreviation": "WSH"
+              },
+              "score": 0,
+              "probablePitcher": {
+                "id": 674841,
+                "fullName": "Andrew Alvarez"
+              }
+            },
+            "home": {
+              "team": {
+                "id": 140,
+                "name": "Texas Rangers",
+                "abbreviation": "TEX"
+              },
+              "score": 0,
+              "probablePitcher": {
+                "id": 594798,
+                "fullName": "Jacob deGrom"
+              }
+            }
+          },
+          "venue": {
+            "id": 5325,
+            "name": "Globe Life Field"
+          },
+          "gameNumber": 1,
+          "doubleHeader": "N",
+          "dayNight": "night",
+          "seriesDescription": "Regular Season"
+        },
+        {
+          "gamePk": 824153,
+          "gameDate": "2026-08-21T00:10:00Z",
+          "officialDate": "2026-08-20",
+          "status": {
+            "abstractGameState": "Preview",
+            "detailedState": "Pre-Game"
+          },
+          "teams": {
+            "away": {
+              "team": {
+                "id": 108,
+                "name": "Los Angeles Angels",
+                "abbreviation": "LAA",
+                "shortName": "LA Angels"
+              },
+              "score": 0,
+              "probablePitcher": {
+                "id": 680570,
+                "fullName": "Grayson Rodriguez"
+              }
+            },
+            "home": {
+              "team": {
+                "id": 117,
+                "name": "Houston Astros",
+                "abbreviation": "HOU"
+              },
+              "score": 0,
+              "probablePitcher": {
+                "id": 663567,
+                "fullName": "Peter Lambert"
+              }
+            }
+          },
+          "venue": {
+            "id": 2392,
+            "name": "Daikin Park"
+          },
+          "gameNumber": 1,
+          "doubleHeader": "N",
+          "dayNight": "night",
+          "seriesDescription": "Regular Season"
+        }
+      ],
+      "events": []
+    }
+  ]
+}
